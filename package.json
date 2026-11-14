@@ -1,0 +1,340 @@
+{
+  "name": "markyou",
+  "version": "1.0.0",
+  "displayName": "MarkYou — Modular Markdown Editor",
+  "publisher": "markyou",
+  "icon": "media/markyou-icon.png",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCustomEditor:markyou.editor"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "markyou.editor",
+        "displayName": "MarkYou",
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          },
+          {
+            "filenamePattern": "*.MD"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "commands": [
+      {
+        "command": "markyou.open",
+        "title": "MarkYou: Open WYSIWYG Editor"
+      },
+      {
+        "command": "markyou.save",
+        "title": "MarkYou: Save",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.saveAs",
+        "title": "MarkYou: Save As Copy…",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.exportPdf",
+        "title": "MarkYou: Export PDF"
+      },
+      {
+        "command": "markyou.bold",
+        "title": "MarkYou: Bold",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.italic",
+        "title": "MarkYou: Italic",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.inlineCode",
+        "title": "MarkYou: Inline Code",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.undo",
+        "title": "MarkYou: Undo",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.redo",
+        "title": "MarkYou: Redo",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.find",
+        "title": "MarkYou: Find in Document",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.outline",
+        "title": "MarkYou: Document Outline",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.navigate",
+        "title": "MarkYou: Navigate",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.pinNavigation",
+        "title": "MarkYou: Pin Navigation",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.toggleToolbar",
+        "title": "MarkYou: Toggle Toolbar",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.focusMode",
+        "title": "MarkYou: Focus Mode",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.help",
+        "title": "MarkYou: Help",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.manageIncludes",
+        "title": "MarkYou: Manage Includes",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.revealSource",
+        "title": "MarkYou: Reveal Source",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.insert",
+        "title": "MarkYou: Insert",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.selectAllDocument",
+        "title": "MarkYou: Select All Document",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.copyDocument",
+        "title": "MarkYou: Copy Document as Markdown",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.format",
+        "title": "MarkYou: Format",
+        "enablement": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.importLegacySettings",
+        "title": "MarkYou: Import Settings from Previous Version"
+      },
+      {
+        "command": "markyou.importLegacyKeybindings",
+        "title": "MarkYou: Import Keybindings from Previous Version"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "markyou.save",
+        "key": "ctrl+s",
+        "mac": "cmd+s",
+        "when": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.saveAs",
+        "key": "ctrl+shift+s",
+        "mac": "cmd+shift+s",
+        "when": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.find",
+        "key": "ctrl+f",
+        "mac": "cmd+f",
+        "when": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.outline",
+        "key": "ctrl+shift+o",
+        "mac": "cmd+shift+o",
+        "when": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.outline",
+        "key": "ctrl+alt+o",
+        "mac": "cmd+alt+o",
+        "when": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.pinNavigation",
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p",
+        "when": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.toggleToolbar",
+        "key": "ctrl+alt+t",
+        "mac": "cmd+alt+t",
+        "when": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.insert",
+        "key": "ctrl+alt+i",
+        "mac": "cmd+alt+i",
+        "when": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.focusMode",
+        "key": "ctrl+alt+f",
+        "mac": "cmd+alt+f",
+        "when": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.help",
+        "key": "ctrl+alt+h",
+        "mac": "cmd+alt+h",
+        "when": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.bold",
+        "key": "ctrl+b",
+        "mac": "cmd+b",
+        "when": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.italic",
+        "key": "ctrl+i",
+        "mac": "cmd+i",
+        "when": "activeCustomEditorId == markyou.editor"
+      },
+      {
+        "command": "markyou.exportPdf",
+        "key": "ctrl+alt+e",
+        "mac": "cmd+alt+e",
+        "when": "activeCustomEditorId == markyou.editor"
+      }
+    ],
+    "configuration": {
+      "title": "MarkYou",
+      "properties": {
+        "markyou.defaultNavigationMode": {
+          "type": "string",
+          "enum": [
+            "find",
+            "outline"
+          ],
+          "default": "find",
+          "description": "Navigation mode used when a document has no saved preference."
+        },
+        "markyou.showToolbar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the MarkYou toolbar for documents without a saved preference."
+        }
+      }
+    },
+    "menus": {
+      "webview/context": [
+        {
+          "command": "markyou.exportPdf",
+          "when": "webviewSection == markyou",
+          "group": "navigation"
+        },
+        {
+          "command": "markyou.revealSource",
+          "when": "webviewSection == markyou",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "vscode:prepublish": "npm run build",
+    "lint": "eslint src tests bench",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/core.test.ts tests/roundtrip.test.ts tests/markdown-extensions.test.ts tests/review.test.ts tests/contract.test.ts tests/search.test.ts tests/gates.test.mjs",
+    "test:ui": "playwright test",
+    "test:host": "node scripts/test-host.mjs",
+    "bench": "tsx bench/run.ts",
+    "package": "node scripts/bundle-engine.mjs && vsce package --target win32-x64 --no-dependencies --allow-missing-repository --no-rewrite-relative-links",
+    "check": "npm run lint && npm run typecheck && npm test && npm run build",
+    "release:gate": "node scripts/check-release.mjs",
+    "brand:audit": "node scripts/brand-audit.mjs",
+    "test:review": "node scripts/prepare-review.mjs && node scripts/verify-review.mjs"
+  },
+  "keywords": [
+    "markdown",
+    "wysiwyg",
+    "markdown-editor",
+    "markdown-preview",
+    "includes",
+    "mermaid",
+    "pdf",
+    "math",
+    "footnotes",
+    "gfm",
+    "typora",
+    "obsidian",
+    "markyou"
+  ],
+  "author": "singerawei",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/singerawei/markyou.git"
+  },
+  "bugs": {
+    "url": "https://github.com/singerawei/markyou/issues"
+  },
+  "homepage": "https://github.com/singerawei/markyou#readme",
+  "description": "MarkYou — local-first WYSIWYG Markdown with editable includes, extended syntax and PDF export.",
+  "dependencies": {
+    "highlight.js": "^11.12.0",
+    "katex": "0.18.2",
+    "lucide": "^1.66.0",
+    "markdown-it": "^15.0.3",
+    "markdown-it-deflist": "^3.0.0",
+    "markdown-it-emoji": "^3.0.0",
+    "mermaid": "^11.17.2",
+    "playwright-core": "^1.64.1",
+    "prosemirror-commands": "^1.7.2",
+    "prosemirror-inputrules": "^1.5.1",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-markdown": "^1.13.9",
+    "prosemirror-model": "^1.25.12",
+    "prosemirror-schema-list": "^1.6.0",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-tables": "^1.8.5",
+    "prosemirror-view": "^1.42.9",
+    "sanitize-html": "^2.17.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
+    "@types/markdown-it": "^14.2.0",
+    "@types/node": "^26.6.6",
+    "@types/sanitize-html": "^2.16.0",
+    "@types/vscode": "1.100.0",
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.14.0",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.1"
+  }
+}

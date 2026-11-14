@@ -1,0 +1,354 @@
+:root{color-scheme:light dark;font-family:var(--vscode-font-family,system-ui);color:var(--vscode-editor-foreground,var(--vscode-foreground,#293241));background:var(--vscode-editor-background,#fbfbfa)}
+*{box-sizing:border-box}
+html{overflow-anchor:none;background:var(--vscode-editor-background,#fff)}
+body{margin:0;color:var(--vscode-editor-foreground,var(--vscode-foreground,#293241));background:var(--vscode-editor-background,#fbfbfa);min-width:0;min-height:100vh}
+button{font:inherit;cursor:pointer;color:inherit;background:transparent;border:1px solid var(--vscode-widget-border,#d4d8dc);border-radius:5px;padding:5px 10px}
+button:hover{background:var(--vscode-toolbar-hoverBackground,#e8eeeb)}
+button:focus-visible,.segment:focus-visible,#navigation button:focus-visible{outline:2px solid var(--vscode-focusBorder,#539989);outline-offset:1px}
+button:disabled{opacity:.45;cursor:default}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+
+/* The only persistent chrome is the 42px toolbar. Everything else is transient. */
+#toolbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:2px;width:100%;max-width:100%;height:42px;padding:5px 8px;background:var(--vscode-editor-background,#fbfbfa);border-bottom:1px solid var(--vscode-widget-border,#e2e5e9);font-size:12px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;box-sizing:border-box}
+#toolbar::-webkit-scrollbar{display:none}
+#toolbar>button{flex:0 0 28px;min-width:0;height:30px;padding:5px;border:0;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;color:var(--vscode-icon-foreground,#53616c)}
+#toolbar>button[aria-pressed=true]{background:var(--vscode-inputOption-activeBackground,#c8e0d5);color:var(--vscode-inputOption-activeForeground,var(--vscode-editor-foreground,#20312b))}
+#toolbar .block-style{flex:0 1 112px;min-width:72px;height:30px;max-width:112px;font:inherit;background:var(--vscode-dropdown-background,var(--vscode-editor-background,#fbfbfa));color:var(--vscode-dropdown-foreground,inherit);border:1px solid var(--vscode-dropdown-border,var(--vscode-widget-border,#ccc));border-radius:4px;padding:2px 4px}
+#toolbar .block-style:disabled{opacity:.45}
+body.toolbar-hidden #toolbar{display:none}
+
+/* Persistent, low-key status strip: source file and save state. */
+#statusbar{position:sticky;top:42px;z-index:19;display:flex;align-items:center;gap:10px;height:24px;padding:0 10px;font:11px/1.4 system-ui,sans-serif;color:var(--vscode-descriptionForeground,#5f6c79);background:var(--vscode-editor-background,#fbfbfa);border-bottom:1px solid var(--vscode-widget-border,#e2e5e9);cursor:pointer;overflow:hidden;white-space:nowrap}
+#statusbar:hover{background:var(--vscode-toolbar-hoverBackground,#eef2f5)}
+#statusbar:focus-visible{outline:2px solid var(--vscode-focusBorder,#539989);outline-offset:-2px}
+#statusbar #status{overflow:hidden;text-overflow:ellipsis}
+#statusbar[data-state=dirty] #status{color:var(--vscode-editorWarning-foreground,#a15c00);font-weight:600}
+#statusbar[data-state=conflict] #status{color:var(--vscode-errorForeground,#c62828);font-weight:700}
+#statusbar[data-state=readonly] #status{font-weight:600}
+body.toolbar-hidden #statusbar{top:0}
+body.toolbar-hidden #readonly-banner{top:24px}
+#readonly-banner{position:sticky;top:66px;z-index:18;display:flex;align-items:center;gap:10px;padding:6px 12px;font:12px/1.4 system-ui,sans-serif;color:var(--vscode-editor-foreground,#4e3f1d);background:color-mix(in srgb,var(--vscode-editorWarning-foreground,#c77700) 14%,var(--vscode-editor-background,#fff));border-bottom:1px solid color-mix(in srgb,var(--vscode-editorWarning-foreground,#c77700) 45%,transparent)}
+#readonly-banner[hidden]{display:none}
+#readonly-banner span{margin-right:auto}
+#readonly-banner button{padding:3px 10px;font-size:12px}
+body.read-only .segment::before{display:none}
+body.read-only .segment{cursor:default}
+body.read-only li[data-checked]::before{cursor:default}
+
+#document{width:100%;max-width:1100px;margin:0 auto 96px;padding:28px clamp(24px,4vw,72px) 44px;font-family:var(--vscode-markdown-font-family,"Helvetica Neue","Luxi Sans","Segoe UI","Microsoft YaHei UI","PingFang SC",sans-serif);font-size:16px;line-height:1.62;color:var(--vscode-editor-foreground,#24292e);overflow-wrap:anywhere;min-width:0;letter-spacing:.002em}
+#document.reading-narrow{max-width:760px}
+#document.reading-wide{max-width:1600px}
+.document-selected .segment.selected{background:color-mix(in srgb,var(--vscode-editor-selectionBackground,#d5e8df) 68%,transparent);border-radius:4px}
+.segment{position:relative;display:flow-root;min-height:8px;content-visibility:auto;contain-intrinsic-size:auto var(--estimated-height,60px)}
+.segment:not([data-rendered]){min-height:var(--estimated-height,60px)}
+.segment::before{position:absolute;left:-17px;top:14px;bottom:14px;width:2px;background:var(--vscode-textLink-foreground,#387666);opacity:0;content:'';border-radius:2px}
+.segment:hover::before,.segment.editing::before{opacity:.3}
+.segment.editing{content-visibility:visible}
+.ProseMirror{outline:none;white-space:pre-wrap;word-wrap:break-word;min-height:1.75em}
+.ProseMirror p:first-child,.ProseMirror h1:first-child,.ProseMirror h2:first-child,.ProseMirror h3:first-child{margin-top:.15em}
+p{margin:0 0 16px}
+h1,h2,h3,h4,h5,h6{line-height:1.25;font-weight:600;letter-spacing:-.012em;color:inherit;scroll-margin-top:70px;margin:24px 0 16px}
+body.read-only h1,body.read-only h2,body.read-only h3,body.read-only h4,body.read-only h5,body.read-only h6{scroll-margin-top:102px}
+h1{font-size:1.75em;margin-top:.7em}
+h1:first-child{margin-top:0}
+h2{font-size:1.55em}
+h3{font-size:1.38em}
+h4{font-size:1.25em}
+h5{font-size:1.13em}
+h6{font-size:1em}
+strong{font-weight:600}
+blockquote{margin:0 0 16px;padding:0 1em;border-left:.25em solid var(--vscode-widget-border,#eaecef);color:var(--vscode-descriptionForeground,#6a737d);background:transparent}
+blockquote>p:last-child{margin-bottom:0}
+ul,ol{padding-left:2em;margin:0 0 16px}
+li+li{margin-top:.25em}
+li>ul,li>ol{margin:.25em 0}
+li[data-checked]{list-style:none;position:relative}
+li[data-checked]::before{content:'';position:absolute;left:-1.55em;top:.4em;width:15px;height:15px;box-sizing:border-box;border:1.5px solid var(--vscode-widget-border,#9aa7b5);border-radius:4px;background:var(--vscode-editor-background,transparent);cursor:pointer;color:#fff;font-size:11px;font-weight:700;line-height:13px;text-align:center}
+li[data-checked=true]::before{content:'✓';background:var(--vscode-textLink-foreground,#0451a5);border-color:var(--vscode-textLink-foreground,#0451a5)}
+.raw-preview{font:13px/1.65 var(--vscode-editor-font-family,"Cascadia Code",Consolas,monospace);background:var(--vscode-textCodeBlock-background,#f2f5f7);border:1px solid var(--vscode-widget-border,#d8dee6);border-radius:7px;padding:12px 14px;overflow:auto;max-height:280px}
+.raw-editor{width:100%;resize:vertical;background:var(--vscode-input-background,#f5f7f9);color:inherit;border:1px solid var(--vscode-focusBorder,#539989);font:13px/1.6 var(--vscode-editor-font-family,monospace);padding:12px;border-radius:7px}
+.include-error{padding:12px 16px;background:var(--vscode-inputValidation-errorBackground,#f8d7da);color:var(--vscode-editor-foreground,#4e1d25);border-left:4px solid var(--vscode-inputValidation-errorBorder,#c62828);white-space:pre-wrap;font:13px/1.6 system-ui;margin:1em 0;border-radius:0 6px 6px 0}
+.include-error p{margin:0 0 8px}
+.include-error-actions{display:flex;gap:8px;flex-wrap:wrap}
+.include-error-actions button{padding:3px 10px;font-size:12px}
+.large-block-notice{padding:10px 12px;background:var(--vscode-textBlockQuote-background,#eef3f5);border-left:4px solid var(--vscode-textLink-foreground,#2875af);font-size:13px;border-radius:0 6px 6px 0}
+.selectedCell{background:var(--vscode-editor-selectionBackground,#d5e8df)}
+small,.empty,.image-placeholder{opacity:.68}
+.search-hit{outline:2px solid var(--vscode-editor-findMatchBorder,#b68b00);outline-offset:3px}
+.source-card{margin:1em 0;padding:11px 14px;border:1px dashed var(--vscode-widget-border,#cbd4dd);border-radius:8px;background:color-mix(in srgb,var(--vscode-textCodeBlock-background,#f2f5f7) 55%,transparent);color:var(--vscode-descriptionForeground,#5f6c79)}
+.source-card-title{font-weight:700;color:var(--vscode-editor-foreground,var(--vscode-foreground,#263440));margin-bottom:6px}
+.source-card dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:3px 12px;margin:0 0 6px}
+.source-card dt{font-weight:650;color:var(--vscode-editor-foreground,var(--vscode-foreground,#263440))}
+.source-card dd{margin:0;overflow-wrap:anywhere}
+
+/* Reading typography: links, media and horizontal rules. */
+a{color:var(--vscode-textLink-foreground,#0451a5);text-decoration-thickness:.06em;text-underline-offset:2px}
+a:hover{text-decoration-thickness:.1em}
+img{display:block;max-width:100%;height:auto;margin:16px auto;border-radius:4px}
+hr{border:0;height:2px;background:var(--vscode-widget-border,#eaecef);margin:24px 0}
+kbd{display:inline-block;padding:1px 5px;border:1px solid var(--vscode-widget-border,#d0d7de);border-bottom-width:2px;border-radius:4px;background:var(--vscode-textCodeBlock-background,#f6f8fa);font:11px/1.5 var(--vscode-editor-font-family,Consolas,monospace);color:inherit;vertical-align:1px}
+abbr{text-decoration:underline dotted;text-underline-offset:2px;cursor:help}
+
+/* Code blocks and inline code. */
+code{font-family:var(--vscode-editor-font-family,"Cascadia Code","JetBrains Mono",Consolas,monospace);font-size:.875em;background:var(--vscode-textCodeBlock-background,#f0f2f5);border:0;border-radius:3px;padding:.2em .4em;color:inherit}
+pre{margin:1em 0;padding:12px 14px;border:1px solid var(--vscode-widget-border,#e1e4e8);border-radius:6px;background:var(--vscode-textCodeBlock-background,#f6f8fa);overflow:auto;font-size:.875em;line-height:1.55;white-space:pre;position:relative;max-width:100%}
+pre code{font-size:1em;background:transparent;border:0;padding:0;white-space:pre;color:inherit}
+pre.wrap-code,pre.wrap-code>code{white-space:pre-wrap}
+pre>.block-tools{margin:-6px -8px 10px;padding:4px 7px;border-bottom:1px solid var(--vscode-widget-border,#e1e4e8);background:transparent;border-radius:5px 5px 0 0}
+pre>.block-tools select{height:26px;border-radius:4px;border:1px solid var(--vscode-dropdown-border,#d0d7de);background:var(--vscode-dropdown-background,transparent);color:inherit;font-size:12px}
+.diagram-figure{margin:1.2em 0;padding:12px;border:1px solid var(--vscode-widget-border,#d8dee6);border-radius:9px;background:var(--vscode-editor-background,#fff);min-height:120px}
+.diagram-canvas{overflow:auto;text-align:center;min-height:90px}
+.diagram-canvas svg{max-width:100%;height:auto}
+.expanded-diagram{position:fixed;inset:48px 16px 16px;z-index:30;overflow:auto;margin:0;background:var(--vscode-editor-background,#fff)}
+.diagram-editor{max-width:1100px;width:95vw}
+.diagram-editor textarea{width:100%;height:240px;font:14px/1.6 Consolas,monospace;background:var(--vscode-input-background,#f5f6f8);color:inherit}
+.diagram-editor .diagram-canvas{max-height:350px}
+
+/* Tables: a scroll shell with a clear header and readable zebra rows. */
+.table-scroll{margin:0 0 16px;border:0;border-radius:0;overflow-x:auto;background:transparent}
+.table-scroll>table{margin:0;min-width:420px}
+table{border-collapse:collapse;width:100%;margin:0 0 16px;font-size:.9em;line-height:1.5;word-break:keep-all}
+.table-scroll table,.ProseMirror table{border-collapse:collapse}
+td,th{border:1px solid var(--vscode-widget-border,#dfe2e5);padding:6px 13px;min-width:50px;vertical-align:top;text-align:left}
+th{background:var(--vscode-textCodeBlock-background,#f6f8fa);font-weight:600;color:inherit;white-space:nowrap}
+tbody tr:nth-child(odd) td{background:color-mix(in srgb,var(--vscode-editor-foreground,#24292e) 2.5%,transparent)}
+tbody tr:nth-child(even) td{background:transparent}
+tbody tr:hover td{background:color-mix(in srgb,var(--vscode-textLink-foreground,#0451a5) 6%,transparent)}
+.ProseMirror table{border-collapse:collapse;margin:0 0 16px}
+.ProseMirror td,.ProseMirror th{border:1px solid var(--vscode-widget-border,#dfe2e5)}
+
+.block-tools{display:flex;align-items:center;justify-content:flex-end;gap:4px;font:12px system-ui;margin-bottom:6px;min-height:26px;color:var(--vscode-descriptionForeground,#586674)}
+.block-tools small{margin-right:auto;opacity:1}
+.block-tools select{max-width:45%;font-size:12px}
+.block-tools button{padding:4px;border:0;display:inline-flex;min-width:25px}
+.editing-code{min-width:0}
+.editing-code pre{margin-top:2px}
+.editing-code code{white-space:pre-wrap}
+.editing-code>.block-tools{margin:0 0 6px;padding:4px 7px;border:1px solid var(--vscode-widget-border,#d8dee6);border-bottom-left-radius:0;border-bottom-right-radius:0;background:var(--vscode-textCodeBlock-background,#f4f7f9)}
+.editing-code>.block-tools button{padding:2px 8px;font-size:11px}
+.editing-code>.block-tools small{margin-left:auto;margin-right:0;font-size:11px}
+.editing-code.wrap-code pre,.editing-code.wrap-code code{white-space:pre-wrap;overflow-wrap:anywhere}
+.editing-code>.block-tools+pre{border-top-left-radius:0;border-top-right-radius:0}
+.diagram-figure{margin:14px 0;padding:12px;border:1px solid #8882;border-radius:8px;background:var(--vscode-editor-background,#fff);min-height:120px}
+.diagram-canvas{overflow:auto;text-align:center;min-height:90px}
+.diagram-canvas svg{max-width:100%;height:auto}
+.expanded-diagram{position:fixed;inset:48px 16px 16px;z-index:30;overflow:auto;margin:0;background:var(--vscode-editor-background,#fff)}
+.diagram-editor{max-width:1100px;width:95vw}
+.diagram-editor textarea{width:100%;height:240px;font:14px/1.6 Consolas,monospace;background:var(--vscode-input-background,#f5f6f8);color:inherit}
+.diagram-editor .diagram-canvas{max-height:350px}
+
+/* Menus are portalled to the body and anchored to their trigger. */
+.insert-menu{position:fixed;z-index:60;background:var(--vscode-menu-background,#fff);color:var(--vscode-menu-foreground,#26333d);border:1px solid var(--vscode-menu-border,#87929d);padding:6px;border-radius:6px;box-shadow:0 8px 30px #0002;min-width:0;max-width:calc(100vw - 16px);overflow:auto}
+.insert-menu[hidden]{display:none}
+.insert-menu button{display:block;width:100%;text-align:left;border:0;padding:7px 10px;border-radius:3px}
+.insert-menu button[hidden]{display:none}
+.insert-menu button:hover{background:var(--vscode-menu-selectionBackground,#d6ebf5);color:var(--vscode-menu-selectionForeground,inherit)}
+.insert-menu button[aria-pressed=true]{font-weight:700}
+.block-menu{min-width:170px}
+.insert-group{margin:6px 4px 2px;padding:2px 4px 3px;border-bottom:1px solid var(--vscode-widget-border,#dfe4ea);font:10px/1.4 system-ui,sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--vscode-descriptionForeground,#6b7785);pointer-events:none}
+.format-menu button[aria-pressed=true]::after{content:' ✓';font-weight:700}
+.inline-check{display:inline-flex;align-items:center;gap:6px;margin:0 10px 0 0;font-size:12px;white-space:nowrap}
+.inline-check input{width:auto;margin:0}
+.dialog-hint{margin:6px 0 10px;font-size:12px;line-height:1.5;color:var(--vscode-descriptionForeground,#5f6c79)}
+.form-textarea{width:100%;min-height:96px;resize:vertical;font:13px/1.6 var(--vscode-editor-font-family,Consolas,monospace)}
+.table-size-grid{display:grid;grid-template-columns:repeat(10,26px);gap:3px;margin:12px 0}
+.table-size-grid button{width:26px;height:24px;padding:0;border-radius:3px;background:var(--vscode-input-background,#f4f7f9)}
+.table-size-grid button:hover,.table-size-grid button:focus-visible{background:var(--vscode-focusBorder,#539989);border-color:var(--vscode-focusBorder,#539989)}
+
+/* Table editing keeps controls close to the table without a permanent row. */
+.table-toolbar{position:fixed;z-index:65;display:flex;align-items:center;gap:2px;padding:4px 6px;background:var(--vscode-menu-background,#fff);color:var(--vscode-menu-foreground,#26333d);border:1px solid var(--vscode-menu-border,#87929d);border-radius:6px;box-shadow:0 6px 22px #0003;font:11px/1.2 system-ui,sans-serif;max-width:calc(100vw - 16px);overflow-x:auto;pointer-events:none}
+.table-toolbar button{pointer-events:auto}
+.table-toolbar[hidden]{display:none}
+.table-toolbar button{padding:4px 7px;font-size:11px;white-space:nowrap;border-radius:3px}
+.table-toolbar-size{padding:0 6px;font-variant-numeric:tabular-nums;color:var(--vscode-descriptionForeground,#5f6c79)}
+.table-toolbar-separator{width:1px;height:18px;background:var(--vscode-widget-border,#cfd7df);margin:0 3px}
+.large-table-preview{max-height:60vh;overflow:auto;border:1px solid var(--vscode-widget-border,#dfe2e5);border-radius:6px;margin:8px 0}
+
+/* Find results are painted through the CSS Custom Highlight API. */
+::highlight(markyou-find){background-color:var(--vscode-editor-findMatchHighlightBackground,#fff2a8);color:inherit}
+::highlight(markyou-current){background-color:var(--vscode-editor-findMatchBackground,#f7c948);outline:1px solid var(--vscode-editor-findMatchBorder,#b68b00)}
+.navigation-options{display:flex;align-items:center;flex-wrap:wrap;margin:0 0 6px;font-size:11px}
+.navigation-replace{display:flex;gap:4px;margin:0 0 8px}
+.navigation-replace input{flex:1;min-width:0;padding:5px 7px;background:var(--vscode-input-background,#fff);color:var(--vscode-input-foreground,inherit);border:1px solid var(--vscode-input-border,#8884);border-radius:4px}
+.navigation-replace button{padding:4px 7px;font-size:11px;white-space:nowrap}
+.navigation-replace[hidden],.navigation-options[hidden]{display:none}
+.include-rows{max-height:40vh;overflow:auto;margin:8px 0}
+.include-row{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--vscode-widget-border,#e4e9ee)}
+.include-row span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px/1.5 var(--vscode-editor-font-family,monospace)}
+.include-row button{padding:3px 8px;font-size:11px}
+
+/* Navigation is an overlay at every width so opening it never moves text. */
+#navigation{position:fixed;top:70px;right:8px;bottom:8px;z-index:40;display:flex;flex-direction:column;width:300px;max-width:calc(100vw - 16px);padding:10px;background:var(--vscode-editor-background,#fff);color:inherit;border:1px solid var(--vscode-widget-border,#87929d);border-radius:8px;box-shadow:0 8px 30px #0003;overflow:hidden}
+body.toolbar-hidden #navigation{top:28px}
+body.read-only #navigation{top:102px}
+#navigation[hidden]{display:none}
+.navigation-header{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:8px}
+.navigation-tabs{display:flex;gap:2px;margin-right:auto}
+.navigation-tabs button{border:0;border-radius:4px;padding:5px 9px}
+.navigation-tabs button[aria-selected=true]{background:var(--vscode-inputOption-activeBackground,#d6e8f2);color:var(--vscode-inputOption-activeForeground,inherit);font-weight:700}
+.navigation-pin[aria-pressed=true]{background:var(--vscode-inputOption-activeBackground,#d6e8f2);font-weight:700}
+.navigation-close,.navigation-pin{padding:4px 8px;font-size:12px}
+.navigation-find{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.navigation-find input{flex:1;min-width:0;width:100%;padding:7px;background:var(--vscode-input-background,#fff);color:var(--vscode-input-foreground,inherit);border:1px solid var(--vscode-input-border,#8884);border-radius:4px}
+.navigation-find kbd{font:11px var(--vscode-editor-font-family,monospace);opacity:.75;white-space:nowrap}
+.navigation-summary{display:block;font-size:12px;margin:2px 0 8px;color:var(--vscode-descriptionForeground,#586674)}
+.navigation-results{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;padding-right:2px}
+.navigation-results:focus,.navigation-results:focus-visible{outline:none}
+.navigation-result{display:block;width:100%;text-align:left;border:0;border-radius:4px;padding:6px 8px;margin:1px 0;min-height:30px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative}
+.navigation-result[data-level]::before{display:inline-block;min-width:20px;margin-right:6px;padding:1px 3px;border-radius:3px;font:9px/1.4 var(--vscode-editor-font-family,monospace);font-weight:700;letter-spacing:.02em;text-align:center;text-decoration:none;vertical-align:1px;background:color-mix(in srgb,var(--vscode-editor-foreground,#263440) 8%,transparent);opacity:.72}
+.navigation-result[data-level="1"]{font-size:13.5px;font-weight:720;margin-top:5px;padding-left:8px;color:var(--vscode-editor-foreground,var(--vscode-foreground,#1f2a36))}
+.navigation-result[data-level="1"]::before{content:"H1";background:var(--vscode-textLink-foreground,#2f6f9f);color:var(--vscode-button-foreground,#fff);opacity:1}
+.navigation-result[data-level="2"]{font-size:13px;font-weight:620;padding-left:18px}
+.navigation-result[data-level="2"]::before{content:"H2";color:var(--vscode-textLink-foreground,#2f6f9f);opacity:.9}
+.navigation-result[data-level="3"]{font-size:12.5px;font-weight:560;padding-left:30px}
+.navigation-result[data-level="3"]::before{content:"H3";opacity:.65}
+.navigation-result[data-level="4"]{font-size:12px;padding-left:42px;opacity:.92}
+.navigation-result[data-level="4"]::before{content:"H4";opacity:.5}
+.navigation-result[data-level="5"]{font-size:11.7px;padding-left:50px;opacity:.84}
+.navigation-result[data-level="5"]::before{content:"H5";opacity:.42}
+.navigation-result[data-level="6"]{font-size:11.4px;padding-left:58px;opacity:.76;text-transform:uppercase;letter-spacing:.03em}
+.navigation-result[data-level="6"]::before{content:"H6";opacity:.36}
+.navigation-result[aria-current=location],.navigation-current{background:var(--vscode-list-activeSelectionBackground,#cfe8f3);color:var(--vscode-list-activeSelectionForeground,#0b3d4f);font-weight:700!important;opacity:1!important}
+.navigation-result[aria-current=location]::before,.navigation-current[data-level]::before{background:var(--vscode-list-activeSelectionForeground,#0b3d4f);color:var(--vscode-list-activeSelectionBackground,#cfe8f3);opacity:1!important}
+.navigation-empty{margin:8px;font-size:13px;color:var(--vscode-descriptionForeground,#586674)}
+.navigation-pagination{display:flex;align-items:center;justify-content:space-between;gap:6px;padding-top:6px;font-size:12px}
+.navigation-pagination[hidden]{display:none}
+
+/* Floating chrome keeps recovery one click away without persistent rows. */
+.floating-chrome{position:fixed;top:8px;right:8px;z-index:70;background:var(--vscode-button-background,#2c6e5b);color:var(--vscode-button-foreground,#fff);border:1px solid var(--vscode-button-border,transparent);border-radius:5px;padding:6px 10px;box-shadow:0 4px 18px #0003;font-size:12px}
+.floating-chrome:hover{background:var(--vscode-button-hoverBackground,#24594a)}
+.floating-chrome[hidden]{display:none}
+
+/* Transient notifications never participate in document layout. */
+#notice{position:fixed;right:12px;bottom:12px;z-index:80;display:flex;flex-direction:column;align-items:flex-end;gap:8px;max-width:min(430px,calc(100vw - 24px));pointer-events:none}
+#notice[hidden]{display:none}
+.toast{pointer-events:auto;display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:6px;background:var(--vscode-notifications-background,#f5f7f8);color:var(--vscode-notifications-foreground,#26333d);border:1px solid var(--vscode-notifications-border,#c3ccd3);border-left:4px solid var(--vscode-notifications-border,#87929d);box-shadow:0 6px 24px #0003;font:13px/1.45 system-ui}
+.toast.success{border-left-color:var(--vscode-testing-iconPassed,#2e7d32)}
+.toast.error{border-left-color:var(--vscode-inputValidation-errorBorder,#c62828)}
+.toast .toast-message{flex:1;min-width:0;overflow-wrap:anywhere}
+.toast button{padding:3px 8px;font-size:12px}
+
+#conflicts:not(:empty){position:fixed;left:12px;bottom:12px;z-index:70;max-width:min(520px,calc(100vw - 24px));padding:10px 14px;background:var(--vscode-inputValidation-warningBackground,#fff3d2);color:var(--vscode-editor-foreground,#4e3f1d);border-left:3px solid var(--vscode-inputValidation-warningBorder,#c69737);border-radius:5px;box-shadow:0 6px 24px #0003;font:12px/1.5 system-ui}
+#conflicts button{margin:4px 4px 0 0;font-size:12px}
+
+dialog{max-width:460px;width:90%;max-height:90vh;overflow:auto;color:inherit;background:var(--vscode-editor-background,#fbfbfa);border:1px solid var(--vscode-widget-border,#ccc);border-radius:10px;padding:24px;box-sizing:border-box}
+dialog::backdrop{background:#0006}
+dialog label{display:block;margin:14px 0;font-size:13px}
+dialog input:not([type=checkbox]),dialog select{display:block;width:100%;font:inherit;padding:8px;margin-top:6px;background:var(--vscode-input-background,#fff);color:inherit;border:1px solid var(--vscode-widget-border,#ccc);border-radius:4px}
+dialog input[type=checkbox]{display:inline;width:auto;margin-right:6px}
+dialog button{margin:8px 8px 0 0}
+.dialog-text{white-space:pre-wrap;font-size:13px;line-height:1.7}
+.dialog-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0}
+.dialog-row output{min-width:48px;text-align:center;font-variant-numeric:tabular-nums}
+
+/* Visual editing never replaces a rendered block with a raw textarea. */
+.html-visual-editor{outline:2px solid var(--vscode-focusBorder,#2f6f9f);outline-offset:5px;border-radius:6px;padding:2px 4px;min-height:1.8em;background:color-mix(in srgb,var(--vscode-editor-background,#fff) 92%,transparent)}
+.html-visual-editor:focus{outline-color:var(--vscode-focusBorder,#2f6f9f)}
+.html-edit-bar{display:flex;align-items:center;gap:6px;margin:0 0 8px;padding:4px 6px;border-radius:5px;background:var(--vscode-textCodeBlock-background,#f2f5f7);border:1px solid var(--vscode-widget-border,#d8dee6);font-size:11px;color:var(--vscode-descriptionForeground,#5f6c79)}
+.html-edit-bar span{margin-right:auto}
+.html-edit-bar button{padding:3px 8px;font-size:11px}
+dialog.block-editor-dialog{max-width:1100px;width:min(1100px,94vw);padding:18px}
+.block-editor-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:stretch;margin:14px 0}
+.block-editor-source{width:100%;min-height:52vh;resize:vertical;box-sizing:border-box;padding:12px;border:1px solid var(--vscode-input-border,#cbd4dd);border-radius:7px;background:var(--vscode-input-background,#f5f7f9);color:inherit;font:13px/1.65 var(--vscode-editor-font-family,"Cascadia Code",Consolas,monospace)}
+.block-editor-preview{min-height:52vh;max-height:65vh;overflow:auto;padding:14px 18px;border:1px solid var(--vscode-widget-border,#d8dee6);border-radius:7px;background:var(--vscode-editor-background,#fff);font-family:var(--vscode-markdown-font-family,"Segoe UI","Microsoft YaHei UI",sans-serif);font-size:15px;line-height:1.72}
+.block-editor-preview>:first-child{margin-top:0}
+.block-editor-hint{font-size:12px;color:var(--vscode-descriptionForeground,#5f6c79);margin:6px 0 0}
+@media(max-width:760px){.block-editor-grid{grid-template-columns:1fr}.block-editor-source,.block-editor-preview{min-height:30vh;max-height:42vh}}
+
+body.focus-mode #toolbar,body.focus-mode #navigation,body.focus-mode .show-toolbar,body.focus-mode #statusbar,body.focus-mode #readonly-banner,body.focus-mode .table-toolbar{display:none}
+@media(forced-colors:active){
+  #statusbar,#readonly-banner,.table-toolbar,.toast,.navigation-result[aria-current=location]{border:1px solid CanvasText}
+  ::highlight(markyou-find){background-color:Highlight;color:HighlightText}
+  ::highlight(markyou-current){background-color:Highlight;color:HighlightText}
+  .table-size-grid button:focus-visible{outline:2px solid Highlight}
+}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+.vscode-high-contrast [class*=hljs-],.vscode-high-contrast-light [class*=hljs-]{color:var(--vscode-editor-foreground,var(--vscode-foreground,#fff))!important}
+.vscode-high-contrast button,.vscode-high-contrast-light button{border-color:var(--vscode-contrastBorder)!important}
+.vscode-high-contrast .hljs-keyword,.vscode-high-contrast-light .hljs-keyword{font-weight:700}
+.vscode-high-contrast .navigation-result[aria-current=location],.vscode-high-contrast-light .navigation-result[aria-current=location]{outline:2px solid var(--vscode-contrastActiveBorder,currentColor);color:var(--vscode-list-activeSelectionForeground,#fff)}
+.vscode-high-contrast .toast,.vscode-high-contrast-light .toast{background:var(--vscode-editor-background,#000);color:var(--vscode-editor-foreground,#fff);border-color:var(--vscode-contrastBorder,#fff)}
+.hljs-keyword,.hljs-selector-tag,.hljs-section{color:#cf222e;font-weight:600}
+.hljs-string,.hljs-attr,.hljs-template-tag{color:#0a3069}
+.hljs-number,.hljs-literal,.hljs-variable,.hljs-template-variable{color:#0550ae}
+.hljs-comment,.hljs-quote{color:#6e7781;font-style:italic}
+.hljs-title,.hljs-title.function_,.hljs-function,.hljs-section{color:#8250df}
+.hljs-type,.hljs-built_in,.hljs-class .hljs-title{color:#953800}
+.hljs-meta,.hljs-symbol,.hljs-bullet{color:#116329}
+.hljs-operator,.hljs-punctuation{color:#57606a}
+.hljs-params{color:inherit}
+.vscode-dark .hljs-keyword,.vscode-dark .hljs-selector-tag,.vscode-dark .hljs-section{color:#ff7b72}
+.vscode-dark .hljs-string,.vscode-dark .hljs-attr,.vscode-dark .hljs-template-tag{color:#a5d6ff}
+.vscode-dark .hljs-number,.vscode-dark .hljs-literal,.vscode-dark .hljs-variable,.vscode-dark .hljs-template-variable{color:#79c0ff}
+.vscode-dark .hljs-comment,.vscode-dark .hljs-quote{color:#8b949e}
+.vscode-dark .hljs-title,.vscode-dark .hljs-title.function_,.vscode-dark .hljs-function,.vscode-dark .hljs-section{color:#d2a8ff}
+.vscode-dark .hljs-type,.vscode-dark .hljs-built_in,.vscode-dark .hljs-class .hljs-title{color:#ffa657}
+.vscode-dark .hljs-meta,.vscode-dark .hljs-symbol,.vscode-dark .hljs-bullet{color:#7ee787}
+.vscode-dark .hljs-operator,.vscode-dark .hljs-punctuation{color:#c9d1d9}
+
+/* GFM/Typora/Obsidian rendering extensions. */
+mark{background:var(--vscode-editor-findMatchHighlightBackground,#fff2a8);color:inherit;padding:0 .08em;border-radius:2px}
+sub,sup{line-height:0}
+dl{margin:12px 0}
+dt{font-weight:700;margin-top:6px}
+dd{margin:0 0 8px 24px}
+.math-block{overflow-x:auto;margin:12px 0;text-align:center}
+.math-inline,.katex{font-size:1.04em}
+.math-error{color:var(--vscode-errorForeground,#c62828)}
+.md-alert{margin:12px 0;padding:10px 14px;border-left:4px solid var(--vscode-textLink-foreground,#2f6fb3);background:var(--vscode-textBlockQuote-background,#f2f7fc);border-radius:5px}
+.md-alert::before{content:attr(data-title);display:block;font-weight:700;margin-bottom:4px}
+details.md-alert{padding:10px 14px}
+details.md-alert::before{content:none}
+details.md-alert>summary{cursor:pointer;font-weight:700;list-style:none}
+details.md-alert>summary::-webkit-details-marker{display:none}
+details.md-alert>summary::before{content:'▸ ';display:inline-block}
+details.md-alert[open]>summary::before{content:'▾ '}
+.md-alert-warning,.md-alert-caution{border-left-color:var(--vscode-editorWarning-foreground,#c77700);background:color-mix(in srgb,var(--vscode-editorWarning-foreground,#c77700) 8%,transparent)}
+.md-alert-important{border-left-color:#8a3ffc}.md-alert-tip,.md-alert-success{border-left-color:var(--vscode-testing-iconPassed,#2e7d32)}.md-alert-danger,.md-alert-bug{border-left-color:var(--vscode-errorForeground,#c62828)}
+.admonition{margin:12px 0;padding:10px 14px;border:1px solid var(--vscode-widget-border,#ccd5df);border-radius:6px;background:var(--vscode-textBlockQuote-background,#f7f9fb)}
+.admonition-title{font-weight:700;margin-bottom:6px}
+.md-toc{margin:12px 0;padding:10px 14px;border:1px solid var(--vscode-widget-border,#d5dbe2);border-radius:6px;background:var(--vscode-textBlockQuote-background,#f8fafc)}
+.md-toc-title{font-weight:700;margin-bottom:6px}
+.md-toc ul{list-style:none;padding-left:0;margin:0}
+.md-toc li{margin:2px 0}
+.md-toc-level-2{padding-left:16px}.md-toc-level-3,.md-toc-level-4,.md-toc-level-5,.md-toc-level-6{padding-left:30px}
+.footnote-ref a{text-decoration:none;font-size:.8em;vertical-align:super}
+.footnote-def{border-top:1px solid var(--vscode-widget-border,#ccd5df);margin-top:10px;padding-top:6px;font-size:.92em}
+.footnote-label{font-weight:700;margin-right:6px}
+.footnote-body{display:inline-block;max-width:calc(100% - 2em)}
+.frontmatter-card{margin:12px 0 18px;padding:12px 16px;border:1px solid var(--vscode-widget-border,#ccd5df);border-radius:6px;background:var(--vscode-textBlockQuote-background,#f8fafc)}
+.frontmatter-title{font-weight:700;margin-bottom:8px}
+.frontmatter-card dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 12px;margin:0}
+.frontmatter-card dt{font-weight:700;margin:0}
+.frontmatter-card dd{margin:0;overflow-wrap:anywhere}
+.md-wikilink{text-decoration:underline;text-decoration-style:dotted}
+.md-embed{display:inline-block;padding:1px 7px;border:1px dashed var(--vscode-widget-border,#8aa0b5);border-radius:4px;color:var(--vscode-textLink-foreground,#375d80);cursor:pointer}
+.md-comment{display:inline-block;width:.55em;height:.55em;margin:0 .1em;border:1px dashed var(--vscode-descriptionForeground,#8a97a3);border-radius:2px;opacity:.55;vertical-align:middle}
+.md-comment-block{min-height:.55em;margin:4px 0;border-left:2px dashed var(--vscode-descriptionForeground,#8a97a3);opacity:.5}
+details{margin:10px 0;padding:8px 12px;border:1px solid var(--vscode-widget-border,#d5dbe2);border-radius:5px}
+summary{cursor:pointer;font-weight:600}
+.source-backed{cursor:text}
+.source-backed:hover{background:color-mix(in srgb,var(--vscode-editor-foreground,#293241) 3%,transparent)}
+
+.diagram-zoom{margin-left:auto;font:11px/1.4 var(--vscode-editor-font-family,monospace);color:var(--vscode-descriptionForeground,#5f6c79);font-variant-numeric:tabular-nums}
+.diagram-error{margin:6px 0;font-weight:600;color:var(--vscode-errorForeground,#c62828)}
+.diagram-error-hint{margin:0 0 8px;font-size:12px;color:var(--vscode-descriptionForeground,#5f6c79)}
+.diagram-source{max-height:240px;overflow:auto;text-align:left;font-size:12px;white-space:pre;background:var(--vscode-textCodeBlock-background,#f6f8fa);border:1px solid var(--vscode-widget-border,#e1e4e8);border-radius:5px;padding:8px 10px}
+.diagram-loading{margin:18px 0;color:var(--vscode-descriptionForeground,#5f6c79);font-size:13px}
+
+@media(max-width:600px){
+  #toolbar{padding:5px 6px;gap:1px}
+  #toolbar .block-style{flex-basis:84px;min-width:64px;max-width:84px}
+  #document{padding:12px 20px 0}
+  #navigation{top:66px;left:0;right:0;bottom:auto;width:100%;max-width:100%;height:min(42vh,320px);border-radius:0 0 8px 8px}
+  #readonly-banner{top:66px;padding:6px 8px}
+  .table-toolbar{font-size:10px}
+  #notice{right:8px;bottom:8px;max-width:calc(100vw - 16px)}
+  .toast{max-width:100%}
+}
+@media(max-width:380px){
+  #toolbar{padding:4px 4px;gap:1px}
+  #toolbar .block-style{flex-basis:76px;min-width:60px;max-width:76px;font-size:11px}
+  #toolbar>button{flex-basis:27px;width:27px;height:28px;padding:3px}
+  #document{padding-left:16px;padding-right:16px}
+}
