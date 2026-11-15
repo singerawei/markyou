@@ -42,7 +42,13 @@ export class DiagramService {
     if(!this.jobs.length&&!this.workers.some(worker=>worker.busy))this.idle=setTimeout(()=>this.release(),30000);
   }
   private async page(worker:typeof this.workers[number],allowDownload=true){
-    this.browser??=this.launchBrowser({allowDownload}).catch(error=>{this.browser=undefined;throw error;});
+    this.browser??=this.launchBrowser({allowDownload}).catch(error=>{
+      this.browser=undefined;
+      // A cancelled or failed first download ends this batch. Queued diagrams
+      // must not restart it; the user's next explicit retry may prepare it again.
+      if(allowDownload)for(const job of this.jobs.splice(0))job.reject(error);
+      throw error;
+    });
     if(!worker.page||worker.page.isClosed()){
       const page=await(await this.browser).newPage({deviceScaleFactor:2});await page.route('**/*',route=>route.abort());await page.setContent('<html><body></body></html>');
       await page.addScriptTag({path:join(this.extensionPath,'dist','mermaid-runtime.js')});worker.page=page;

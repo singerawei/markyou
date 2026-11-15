@@ -4,6 +4,7 @@ import {mkdtemp,writeFile,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {acquireBrowser,browserCacheLayout,installBrowser,systemBrowserPaths,type BrowserCandidate,type BrowserServices} from '../src/extension/browserRuntimeCore';
+import {DiagramService} from '../src/extension/diagramService';
 
 const edge={name:'Microsoft Edge',executablePath:'edge.exe'},chrome={name:'Google Chrome',executablePath:'chrome.exe'},cached={name:'Chromium',executablePath:'cache.exe'};
 function fixture(){
@@ -77,4 +78,13 @@ test('cancelling an installer terminates it and permits a subsequent retry',asyn
   controller.abort();await stopped;
   await writeFile(join(directory,'cli.js'),'process.exit(0)');
   await installBrowser(directory,cache,false,new AbortController().signal,()=>{});
+});
+test('failed diagram preparation rejects its batch without restarting the download',async()=>{
+  let attempts=0;
+  const diagrams=new DiagramService('unused',async()=>{attempts++;throw new Error('Download cancelled');});
+  try{
+    const results=await Promise.allSettled(Array.from({length:20},()=>diagrams.render('flowchart LR\n A --> B',false)));
+    assert.ok(results.every(result=>result.status==='rejected'));assert.equal(attempts,1);
+    await assert.rejects(diagrams.render('flowchart LR\n A --> B',false),/Download cancelled/);assert.equal(attempts,2);
+  }finally{await new Promise(resolve=>setImmediate(resolve));diagrams.dispose();}
 });
