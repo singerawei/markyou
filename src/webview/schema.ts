@@ -40,7 +40,9 @@ export const serializer = new MarkdownSerializer({
       row.forEach(cell => {
         // GFM table cells are inline only. Escape pipes even inside code spans.
         const temp = serializer.serialize(schema.nodes.doc.create(null,schema.nodes.paragraph.create(null,cell.content)));
-        state.write(temp.replace(/\|/g,'\\|').replace(/\n/g,' ') + ' | ');
+        const escaped = temp.replace(/\|/g,'\\|').replace(/\n/g,' ')
+          .replace(/^ +| +$/g, spaces => '&#32;'.repeat(spaces.length));
+        state.write(escaped + ' | ');
       });
       state.ensureNewLine();
       if (index === 0) {

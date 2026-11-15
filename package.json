@@ -1,6 +1,6 @@
 {
   "name": "markyou",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "displayName": "MarkYou — Modular Markdown Editor",
   "publisher": "markyou",
   "icon": "media/markyou-icon.png",
@@ -33,119 +33,124 @@
     "commands": [
       {
         "command": "markyou.open",
-        "title": "MarkYou: Open WYSIWYG Editor"
+        "title": "%markyou.open.title%"
       },
       {
         "command": "markyou.save",
-        "title": "MarkYou: Save",
+        "title": "%markyou.save.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.saveAs",
-        "title": "MarkYou: Save As Copy…",
+        "title": "%markyou.saveAs.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.exportPdf",
-        "title": "MarkYou: Export PDF"
+        "title": "%markyou.exportPdf.title%"
       },
       {
         "command": "markyou.bold",
-        "title": "MarkYou: Bold",
+        "title": "%markyou.bold.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.italic",
-        "title": "MarkYou: Italic",
+        "title": "%markyou.italic.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.inlineCode",
-        "title": "MarkYou: Inline Code",
+        "title": "%markyou.inlineCode.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.undo",
-        "title": "MarkYou: Undo",
+        "title": "%markyou.undo.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.redo",
-        "title": "MarkYou: Redo",
+        "title": "%markyou.redo.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.find",
-        "title": "MarkYou: Find in Document",
+        "title": "%markyou.find.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.outline",
-        "title": "MarkYou: Document Outline",
+        "title": "%markyou.outline.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.navigate",
-        "title": "MarkYou: Navigate",
+        "title": "%markyou.navigate.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.pinNavigation",
-        "title": "MarkYou: Pin Navigation",
+        "title": "%markyou.pinNavigation.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.toggleToolbar",
-        "title": "MarkYou: Toggle Toolbar",
+        "title": "%markyou.toggleToolbar.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.focusMode",
-        "title": "MarkYou: Focus Mode",
+        "title": "%markyou.focusMode.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.help",
-        "title": "MarkYou: Help",
+        "title": "%markyou.help.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.manageIncludes",
-        "title": "MarkYou: Manage Includes",
+        "title": "%markyou.manageIncludes.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.revealSource",
-        "title": "MarkYou: Reveal Source",
+        "title": "%markyou.revealSource.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.insert",
-        "title": "MarkYou: Insert",
+        "title": "%markyou.insert.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.selectAllDocument",
-        "title": "MarkYou: Select All Document",
+        "title": "%markyou.selectAllDocument.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.copyDocument",
-        "title": "MarkYou: Copy Document as Markdown",
+        "title": "%markyou.copyDocument.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.format",
-        "title": "MarkYou: Format",
+        "title": "%markyou.format.title%",
         "enablement": "activeCustomEditorId == markyou.editor"
       },
       {
         "command": "markyou.importLegacySettings",
-        "title": "MarkYou: Import Settings from Previous Version"
+        "title": "%markyou.importLegacySettings.title%"
       },
       {
         "command": "markyou.importLegacyKeybindings",
-        "title": "MarkYou: Import Keybindings from Previous Version"
+        "title": "%markyou.importLegacyKeybindings.title%"
+      },
+      {
+        "command": "markyou.exportMarkdown",
+        "title": "%markyou.exportMarkdown.title%",
+        "enablement": "activeCustomEditorId == markyou.editor"
       }
     ],
     "keybindings": [
@@ -238,12 +243,22 @@
             "outline"
           ],
           "default": "find",
-          "description": "Navigation mode used when a document has no saved preference."
+          "description": "%markyou.defaultNavigationMode.description%"
         },
         "markyou.showToolbar": {
           "type": "boolean",
           "default": true,
-          "description": "Show the MarkYou toolbar for documents without a saved preference."
+          "description": "%markyou.showToolbar.description%"
+        },
+        "markyou.defaultReadOnly": {
+          "type": "boolean",
+          "default": false,
+          "description": "%markyou.defaultReadOnly.description%"
+        },
+        "markyou.assetDirectory": {
+          "type": "string",
+          "default": "assets",
+          "description": "%markyou.assetDirectory.description%"
         }
       }
     },
@@ -267,15 +282,14 @@
     "vscode:prepublish": "npm run build",
     "lint": "eslint src tests bench",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/core.test.ts tests/roundtrip.test.ts tests/markdown-extensions.test.ts tests/review.test.ts tests/contract.test.ts tests/search.test.ts tests/gates.test.mjs",
+    "test": "tsx --test tests/core.test.ts tests/roundtrip.test.ts tests/markdown-extensions.test.ts tests/review.test.ts tests/contract.test.ts tests/search.test.ts tests/gates.test.mjs tests/ux.test.ts",
     "test:ui": "playwright test",
     "test:host": "node scripts/test-host.mjs",
     "bench": "tsx bench/run.ts",
     "package": "node scripts/bundle-engine.mjs && vsce package --target win32-x64 --no-dependencies --allow-missing-repository --no-rewrite-relative-links",
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
     "release:gate": "node scripts/check-release.mjs",
-    "brand:audit": "node scripts/brand-audit.mjs",
-    "test:review": "node scripts/prepare-review.mjs && node scripts/verify-review.mjs"
+    "brand:audit": "node scripts/brand-audit.mjs"
   },
   "keywords": [
     "markdown",

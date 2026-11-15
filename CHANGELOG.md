@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.0 — 2026-11-15
+
+- Preserve quoted TSV cells, whitespace, paths, empty cells and GFM hard breaks across paste/save/reopen; keep the GFM header mandatory.
+- Navigate individual search occurrences and validate source URI, version and range before replacement. Preview and deduplicate multi-file replacement.
+- Copy complete root Markdown through the confirmed host clipboard, including complex blocks and empty documents.
+- Persist unapplied Markdown, Mermaid and HTML drafts in local workspace state and backups; apply drafts before Ctrl+S.
+- Snapshot image insertion targets, restore remote image URLs, edit image properties, and explicitly copy external images into a configurable resource directory.
+- Open local attachments and preserve heading fragments; keep read-only state per document.
+- Export complete Markdown with expanded Includes, source-relative resources and current unsaved model contents.
+- Insert footnotes atomically with Unicode labels; target new frontmatter at the root. Add source-scoped block operations and full paginated large-table browsing.
+- Show cancellable PDF progress during resource preparation; add Chinese interface and command resources.
+- Test and package in GitHub Actions, publish the tested VSIX to GitHub Releases and Marketplace, and exclude local artifacts and credentials from source releases. Stable releases retain manual acceptance gates.
+
 ## 1.0.0 — 2026-11-14
 
 The first public release of **MarkYou**, a local-first Markdown editor for VS Code.

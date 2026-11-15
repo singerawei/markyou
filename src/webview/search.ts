@@ -58,7 +58,7 @@ function locate(nodes: {node: Text; start: number; end: number}[], position: num
 }
 
 /** Use the CSS Custom Highlight API so the rendered DOM is never mutated. */
-export function applyFindHighlights(root: HTMLElement, query: string, currentElement: HTMLElement | null, matchCase: boolean) {
+export function applyFindHighlights(root: HTMLElement, query: string, currentElement: HTMLElement | null, matchCase: boolean, ordinal=0) {
   const highlights = (CSS as unknown as {highlights?: Map<string, unknown>}).highlights;
   if (!highlights || typeof (window as any).Highlight !== 'function') return 0;
   highlights.delete('markyou-find');
@@ -66,7 +66,8 @@ export function applyFindHighlights(root: HTMLElement, query: string, currentEle
   if (!query.trim()) return 0;
   const ranges = findRanges(root, query, matchCase);
   if (!ranges.length) return 0;
-  const current = ranges.filter(range => currentElement?.contains(range.commonAncestorContainer));
+  const candidates = ranges.filter(range => currentElement?.contains(range.commonAncestorContainer));
+  const current = candidates[ordinal]?[candidates[ordinal]]:[];
   const rest = ranges.filter(range => !current.includes(range));
   if (rest.length) highlights.set('markyou-find', new (window as any).Highlight(...rest));
   if (current.length) highlights.set('markyou-current', new (window as any).Highlight(...current));

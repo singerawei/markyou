@@ -1,17 +1,23 @@
-name: Validate and package
+name: Validate, package and publish
 on:
   push:
     branches: [main, master]
     tags: ['v*']
   pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: markyou-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 jobs:
   verify:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,26 +25,35 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - name: Check release tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node scripts/check-tag.mjs
       - run: npm run check
       - run: npm run brand:audit
-      - name: Install Playwright browsers (Linux)
+      - name: Install UI browser (Linux)
         if: runner.os == 'Linux'
         run: npx playwright install --with-deps chromium
-      - name: Install Playwright browsers (Windows)
+      - name: Install UI browser and packaged engine (Windows)
         if: runner.os == 'Windows'
         run: npx playwright install chromium chromium-headless-shell
       - run: npm run test:ui
       - run: npm run bench
-      - run: npm run package
+      - name: Package Windows VSIX
         if: runner.os == 'Windows'
-      - name: Audit packaged VSIX
+        run: npm run package
+      - name: Audit exact VSIX and record checksum
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $vsix = Get-ChildItem -Filter 'markyou-win32-x64-*.vsix' | Select-Object -First 1
-          if (-not $vsix) { throw 'Packaged VSIX was not found.' }
-          node scripts/brand-audit.mjs --vsix $vsix.FullName
-      - name: Prepare isolated VS Code executable
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $vsix = "markyou-win32-x64-$version.vsix"
+          node scripts/brand-audit.mjs --vsix $vsix
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $hash = (Get-FileHash -LiteralPath $vsix -Algorithm SHA256).Hash.ToLower()
+          "$hash  $vsix" | Set-Content -Encoding utf8 SHA256SUMS.txt
+      - name: Prepare isolated VS Code
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
@@ -47,44 +62,113 @@ jobs:
           Invoke-WebRequest 'https://update.code.visualstudio.com/latest/win32-x64-archive/stable' -OutFile $editorArchive
           Expand-Archive -LiteralPath $editorArchive -DestinationPath $editorDirectory
           "VSCODE_EXECUTABLE=$(Join-Path $editorDirectory 'Code.exe')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-      - run: npm run test:host
-        if: runner.os == 'Windows'
-      - name: Test installed VSIX
+      - name: Test development extension and installed VSIX
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $vsix = Get-ChildItem -Filter 'markyou-win32-x64-*.vsix' | Select-Object -First 1
-          if (-not $vsix) { throw 'Packaged VSIX was not found.' }
-          node scripts/test-host.mjs $vsix.FullName
-      - run: npm run release:gate
-        if: runner.os == 'Windows' && startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
+          npm run test:host
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          node scripts/test-host.mjs "markyou-win32-x64-$version.vsix"
+          exit $LASTEXITCODE
       - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
         with:
-          name: markyou-${{ matrix.os }}
+          name: markyou-vsix
+          if-no-files-found: error
           path: |
-            *.vsix
-            bench/results/
-            docs/review-artifacts/response-1.0.0/
-  release:
-    # Pre-release tags are published manually with a locally verified VSIX.
+            markyou-win32-x64-*.vsix
+            SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.os }}
+          retention-days: 7
+          path: |
+            test-results/
+            bench/results/*.json
+  acceptance:
     if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
     needs: verify
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: markyou-vsix
+      - name: Load manual acceptance for this exact package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: pwsh
+        run: |
+          gh release download "$env:RELEASE_TAG" --pattern acceptance.json --dir release
+          if ($LASTEXITCODE -ne 0) { throw 'Stable release requires acceptance.json attached to a draft release. Download the markyou-vsix artifact, verify that package, upload its evidence, then rerun failed jobs.' }
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          Copy-Item -LiteralPath "markyou-win32-x64-$version.vsix" -Destination release/package.zip
+          Expand-Archive -LiteralPath release/package.zip -DestinationPath release/unpacked
+          Copy-Item -LiteralPath release/unpacked/extension/dist -Destination dist -Recurse
+          node scripts/check-release.mjs release/acceptance.json
+          exit $LASTEXITCODE
+  release:
+    if: always() && startsWith(github.ref, 'refs/tags/v') && needs.verify.result == 'success' && (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped')
+    needs: [verify, acceptance]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: markyou-windows-latest
-          path: artifacts
-      - name: Attach VSIX to GitHub release
+          name: markyou-vsix
+          path: release
+      - name: Publish tested VSIX to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
         run: |
-          if [[ "$RELEASE_TAG" == *-* ]]; then
-            gh release create "$RELEASE_TAG" artifacts/*.vsix --generate-notes --prerelease --title "MarkYou $RELEASE_TAG"
+          cd release
+          sed -i '1s/^\xEF\xBB\xBF//' SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
+          cd ..
+          flags=()
+          if [[ "$RELEASE_TAG" == *-* ]]; then flags+=(--prerelease); else flags+=(--latest); fi
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release/*.vsix README.md README.zh-CN.md --clobber
+            gh release edit "$RELEASE_TAG" --draft=false "${flags[@]}"
           else
-            gh release create "$RELEASE_TAG" artifacts/*.vsix --generate-notes --title "MarkYou $RELEASE_TAG"
+            gh release create "$RELEASE_TAG" release/*.vsix README.md README.zh-CN.md --verify-tag --generate-notes --title "MarkYou $RELEASE_TAG" "${flags[@]}"
           fi
+  marketplace:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: release
+    runs-on: ubuntu-latest
+    environment: marketplace
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: markyou-vsix
+          path: release
+      - name: Publish tested package to VS Code Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          if [[ -z "$VSCE_PAT" ]]; then
+            echo '::error::Set the VSCE_PAT Actions secret with publish access to the markyou publisher.'
+            exit 1
+          fi
+          flags=()
+          if [[ "$RELEASE_TAG" == *-* ]]; then flags+=(--pre-release); fi
+          npx --no-install vsce publish --packagePath release/*.vsix --skip-duplicate "${flags[@]}"

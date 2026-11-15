@@ -2,8 +2,10 @@ import * as vscode from 'vscode';
 import { DocumentGraph } from '../document/documentGraph';
 import { SourceRepository } from '../document/sourceFile';
 import { uriForPath } from '../document/fileIO';
+import type {UnappliedDraft} from '../shared/draft';
 
 export class CompositeDocument implements vscode.CustomDocument {
+  drafts:UnappliedDraft[]=[];
   undoDepth=0;redoDepth=0;
   readonly graph: DocumentGraph;
   readonly panels = new Set<vscode.WebviewPanel>();

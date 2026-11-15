@@ -59,6 +59,38 @@ export async function run() {
   }
   const childUri = await document.repository.io.resolve(document.rootUri,'./child.md');
   const source = document.repository.sources.get(childUri)!;
+  const call=async(message:any)=>{
+    const id='ux-'+Math.random().toString(36).slice(2);receive({...message,id});
+    await wait(()=>posted.some(item=>item.type==='result'&&item.id===id));
+    return posted.find(item=>item.type==='result'&&item.id===id);
+  };
+  console.log('HOST_STAGE UX source-scoped occurrence replacement');
+  const childHeading=source.pieces[0];
+  const response=await call({type:'replace',query:'Child',replacement:'CHANGED',sourceMode:true,matchCase:true,uri:childUri,pieceId:childHeading.id,sourceVersion:source.version,range:{start:2,end:7}});
+  assert.equal(response.result?.count,1);assert.match(serializeSource(source),/# CHANGED/);
+  assert.equal(serializeSource(document.repository.sources.get(document.rootUri)!),masterText);
+  const stale=await call({type:'replace',query:'CHANGED',replacement:'WRONG',sourceMode:true,uri:childUri,pieceId:childHeading.id,sourceVersion:source.version-1,range:{start:2,end:9}});
+  assert.match(stale.error,/changed/);assert.ok(!serializeSource(source).includes('WRONG'));
+  await provider.revertCustomDocument(document);
+  document.repository.editDraft(source.uri,serializeSource(source),'word word word\n');
+  await (provider as any).queue;
+  const secondReplacement=await call({type:'replace',query:'word',replacement:'SECOND',sourceMode:false,uri:childUri,pieceId:source.pieces[0].id,sourceVersion:source.version,range:{start:5,end:9}});
+  assert.equal(secondReplacement.result?.count,1);assert.equal(serializeSource(source),'word SECOND word\n');
+  await provider.revertCustomDocument(document);
+  console.log('HOST_STAGE UX replacement preview deduplicates repeated Include');
+  const rootSourceForPreview=document.repository.sources.get(document.rootUri)!;
+  document.repository.editDraft(document.rootUri,serializeSource(rootSourceForPreview),masterText+'\n@import "./child.md"\n');
+  await (provider as any).queue;
+  const preview=await call({type:'preview-replace',query:'Stripe',replacement:'Preview',all:true,sourceMode:true});
+  assert.equal(preview.result.count,1);assert.deepEqual(preview.result.files,[childUri]);
+  const applied=await call({type:'replace',query:'Stripe',replacement:'Preview',all:true,sourceMode:true,plan:preview.result.plan});
+  assert.equal(applied.result.count,1);assert.match(serializeSource(source),/Preview/);
+  await provider.revertCustomDocument(document);
+  console.log('HOST_STAGE UX unapplied draft persistence');
+  const draft={key:`${childUri}::p0::markdown`,uri:childUri,pieceId:'p0',kind:'markdown',baseline:source.pieces[0].raw,value:'UNAPPLIED DRAFT 中文',updatedAt:Date.now()};
+  receive({type:'draft',draft});await (provider as any).queue;
+  assert.equal(document.drafts[0].value,draft.value);
+  assert.ok(!serializeSource(source).includes('UNAPPLIED'));
   const piece = source.pieces.find(p => p.raw.includes('Stripe'))!;
   let event:vscode.CustomDocumentEditEvent<any> | undefined;
   const subscription = provider.onDidChangeCustomDocument(change => { event = change; });
@@ -70,6 +102,7 @@ export async function run() {
   await event!.redo();
   const backup = await provider.backupCustomDocument(document,{destination:vscode.Uri.file(join(directory,'backup.json'))});
   assert.match(await readFile(join(directory,'backup.json'),'utf8'),/Adyen/);
+  assert.match(await readFile(join(directory,'backup.json'),'utf8'),/UNAPPLIED DRAFT/);
   await provider.revertCustomDocument(document); assert.equal(source.dirty,false);
   console.log("HOST_STAGE clipboard");
   await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(master));
@@ -86,6 +119,7 @@ export async function run() {
   console.log("HOST_STAGE recovery");
   subscription.dispose(); document.panels.clear(); document.dispose();
   const restored = await provider.openCustomDocument(vscode.Uri.file(master),{backupId:backup.id,untitledDocumentData:undefined});
+  assert.equal(restored.drafts[0].value,draft.value);
   assert.ok([...restored.dirtySources].includes(childUri));
   await provider.saveCustomDocument(restored); assert.match(await readFile(child,'utf8'),/Adyen/);
   restored.dispose();
@@ -125,9 +159,21 @@ export async function run() {
   console.log("HOST_STAGE png");
   for(let i=0;i<20;i++){const png=await(provider as any).diagrams.png(`flowchart LR\n A["中文 <b>text ${i}</b>"] --> B[End]`,false);assert.equal(Buffer.from(png).subarray(0,8).toString('hex'),'89504e470d0a1a0a');if(i===0)await writeFile(join(process.env.MARKYOU_REPORT_DIR!,'diagram-export.png'),png);}
   console.log("HOST_STAGE webview-bench");
+  const completeCopyPath=join(directory,'complete-copy.md');
+  const completeCopyText='---\ntitle: Complete copy\n---\n\nBody text.\n\n$$\nx^2+y^2\n$$\n\n<!-- Copy comments too -->\n\n@import "./child.md"\n';
+  await writeFile(completeCopyPath,completeCopyText);
+  await vscode.commands.executeCommand('vscode.openWith',vscode.Uri.file(completeCopyPath),'markyou.editor');
+  const liveDocuments = (provider as any).documents as Set<CompositeDocument>;
+  await wait(()=>[...liveDocuments].some(doc=>doc.uri.fsPath.toLowerCase()===completeCopyPath.toLowerCase()&&doc.metrics.editable!==undefined));
+  await vscode.commands.executeCommand('markyou.selectAllDocument');
+  await vscode.commands.executeCommand('markyou.copyDocument');
+  let completeCopied=false;
+  for(let attempt=0;attempt<30;attempt++){if(await clipboardRead()===completeCopyText){completeCopied=true;break;}await new Promise(resolve=>setTimeout(resolve,100));}
+  assert.ok(completeCopied,'Real webview copy command must round-trip complete root Markdown through the OS clipboard.');
+  await writeFile(join(process.env.MARKYOU_REPORT_DIR!,'complete-copy.json'),JSON.stringify({verified:completeCopied,scope:'Real installed/development VS Code webview command and OS clipboard readback; includes metadata, math, comments and imports.'}));
+  await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
   // Smoke the registered custom editor and an actual webview in an isolated profile.
   await vscode.commands.executeCommand('vscode.openWith',vscode.Uri.file(master),'markyou.editor');
-  const liveDocuments = (provider as any).documents as Set<CompositeDocument>;
   await wait(() => [...liveDocuments].some(doc => doc.uri.fsPath.toLowerCase() === master.toLowerCase() && doc.metrics.editable !== undefined));
   await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
   const corpus = join(directory,'corpus'); await generate(corpus);

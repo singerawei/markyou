@@ -52,11 +52,20 @@ MarkYou 把普通的 `.md` 文件变成 VS Code 中点击即可编辑的文档�
 | **显示设置持久化** | 字号、窄/标准/宽阅读宽度、专注模式和只读状态在重启后保留。 |
 | **键盘优先** | 常用操作都是 VS Code 命令，可在「键盘快捷方式」中重新映射。 |
 
+## 1.1 更新
+
+- TSV 支持带引号的换行单元格，保留空格、前导零和反斜杠；支持 HTML 表格粘贴，单元格换行保存重开后继续按 GFM 编辑。首行为固定表头。
+- 替换按来源、块、命中范围和版本校验，可逐次命中导航；多文件全部替换先审查范围。
+- 全文复制等待完整根文件模型，保留公式、注释、元数据和 `@import`；只读也可复制。
+- 未应用的复杂块、Mermaid、HTML 草稿持久化恢复；Ctrl+S 应用并保存，不直接覆盖磁盘。
+- “更多 → 导出完整 Markdown…”展开 Include 并复制本地资源；右键阅读块可复制、删除、上下移动。
+- 只读状态按文档保存；新增默认只读、资源目录设置及中文主要界面控件。
+
 ## 安装
 
 **要求：** Windows x64，VS Code 1.100 或更高版本。无需单独安装 Chrome 或 Edge。
 
-1. 从 [GitHub Releases](https://github.com/singerawei/markyou/releases) 下载 `markyou-win32-x64-1.0.0.vsix`。
+1. 从 [GitHub Releases](https://github.com/singerawei/markyou/releases) 下载 `markyou-win32-x64-1.1.0.vsix`。
 2. 在 VS Code 中打开「扩展」，点击 **… → 从 VSIX 安装…**，选择该文件。
 3. 重新加载 VS Code。
 4. 右键任意 `.md` 文件，选择 **打开方式… → MarkYou**。
@@ -119,7 +128,7 @@ npm run package
 | 隐藏工具栏 | `Ctrl+Alt+T` | `Cmd+Alt+T` |
 | 帮助 | `?` 或 `Ctrl+Alt+H` | `?` 或 `Cmd+Alt+H` |
 
-所有快捷键都是 VS Code 命令，可重新映射。完整列表与宿主冲突说明见 [docs/KEYBINDINGS.md](https://github.com/singerawei/markyou/blob/main/docs/KEYBINDINGS.md)。
+所有快捷键都是 VS Code 命令，可重新映射。完整列表与宿主冲突说明见 **MarkYou: Help**。
 
 ## 注意事项
 
@@ -127,7 +136,7 @@ npm run package
 - **另存为副本** 会写出根文件的副本，并继续保持编辑当前文档；副本必须位于同一目录，以维持相对 `@import` 路径。
 - 超出编辑上限的块会回退到文本编辑器：代码 128 KiB、正文 16 KiB、表格 200 行。超大表格会保留只读预览，并提供明确的「在文本编辑器中编辑」操作。
 - Wiki 嵌入 `![[Page]]` 以可点击卡片呈现，而不是完整的全文转嵌。
-- 1.0.0 面向 Windows x64，暂不包含 macOS/Linux 构建。
+- 1.1.0 面向 Windows x64，暂不包含 macOS/Linux 构建。
 
 ## 开发
 
@@ -141,6 +150,18 @@ npm run package      # 构建 VSIX
 ```
 
 贡献流程见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+## 自动发布
+
+插件身份保持 `markyou.markyou`。只有成功发布到 Marketplace 后，VS Code 才会通过正常扩展更新机制更新已安装插件；仅上传 GitHub 不会同步 Marketplace。
+
+1. 在仓库或 `marketplace` 环境的 Actions secrets 中配置 `VSCE_PAT`，令牌须有现有 `markyou` publisher 的发布权限。不要提交或在聊天中发送令牌。
+2. 同步更新版本、锁文件、README 和更新日志。推送 `v1.1.0-preview.1` 标签发布预览通道；推送 `v1.1.0` 发布稳定通道。Marketplace 包版本使用数字版本 `1.1.0`。
+3. Actions 执行 Linux/Windows 检查、UI 测试、Windows 打包、品牌审计和真实 VS Code 安装包测试，再将同一份 VSIX 发布到 GitHub Release 和 Marketplace。Release 只附带 VSIX、README；测试报告仅保留为短期 Actions 产物。
+4. 稳定版保留真人输入法、用户任务、PDF、恢复和性能验收门禁。下载 `markyou-vsix` 产物实测，把匹配包哈希的 `acceptance.json` 附到该标签的草稿 Release，然后只重跑失败的 acceptance 作业。证据缺失或过期时禁止稳定发布。
+5. Marketplace 步骤失败时，补齐密钥后重跑失败作业即可。`.gitignore` 排除了 VSIX、Chromium、依赖、评审记录、测试报告和凭据；VSIX 作为 Release 附件提供。
+
+“更多 → 块操作 → 编辑同源连续章节”支持相邻同源块之间的原生选区、剪切／删除和撤销；每个写作区域最多 32 块／32 KiB。Include 和需源码编辑的复杂块是明确边界，跨来源的破坏性操作继续阻止。自动化通过不代表真人输入法、读屏与用户任务验收完成，预览发布也不代表已满足稳定版门禁。
 
 ## 许可证
 

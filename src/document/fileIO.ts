@@ -22,11 +22,15 @@ export class LocalFileIO implements FileIO {
     finally { await unlink(temporary).catch(() => {}); }
   }
   async resolve(from: string, target: string) {
+    if (/^[a-z][a-z\d+.-]*:/i.test(target) || isAbsolute(target) || target.startsWith('\\') || target.includes('\0') || /[?#]/.test(target)) throw new Error(`Only relative local Markdown imports are allowed: ${target}`);
+    if (extname(target).toLowerCase() !== '.md') throw new Error(`Only .md imports are supported: ${target}`);
+    return this.resolveResource(from,target);
+  }
+  async resolveResource(from: string, target: string) {
     if (/^[a-z][a-z\d+.-]*:/i.test(target) || isAbsolute(target) || target.startsWith('\\') || target.includes('\0') || /[?#]/.test(target)) {
       throw new Error(`Only relative local Markdown imports are allowed: ${target}`);
     }
     const candidate = resolve(dirname(fileURLToPath(from)),target.replace(/[\\/]/g,sep));
-    if (extname(candidate).toLowerCase() !== '.md') throw new Error(`Only .md imports are supported: ${target}`);
     // Canonicalize symlinks before checking containment; missing paths canonicalize their parent.
     const canonical = await this.canonical(candidate);
     const roots = await Promise.all(this.roots.map(root => this.canonical(root)));

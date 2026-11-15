@@ -31,6 +31,7 @@ export function activate(context: vscode.ExtensionContext) {
     selectAllDocument: 'select-all-document',
     copyDocument: 'copy-document',
     format: 'format',
+    exportMarkdown:'export-markdown',
   };
   for (const [name, action] of Object.entries(actions)) {
     context.subscriptions.push(vscode.commands.registerCommand(`markyou.${name}`, (item?: unknown) => provider.dispatch(action, item)));
@@ -45,7 +46,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('markyou.importLegacyKeybindings', () => importLegacyKeybindings()),
     provider,
     vscode.window.registerCustomEditorProvider(EditorProvider.viewType, provider, {
-      webviewOptions: {retainContextWhenHidden: false},
+      webviewOptions: {retainContextWhenHidden: true},
       supportsMultipleEditorsPerDocument: true,
     }),
   );

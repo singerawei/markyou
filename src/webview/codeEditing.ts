@@ -14,7 +14,7 @@ export const indentCode=(outdent=false):Command=>(state,dispatch)=>{
   dispatch?.(tr);return true;
 };
 export const newlineCode:Command=(state,dispatch)=>{const {$from}=state.selection;if(!$from.parent.type.spec.code)return false;const prefix=$from.parent.textContent.slice(0,$from.parentOffset).split('\n').pop()!;dispatch?.(state.tr.insertText('\n'+(/^\s*/.exec(prefix)?.[0]??'')));return true;};
-export function codeNodeView(node:Node,view:EditorView,getPos:()=>number|undefined):NodeView{
+export function codeNodeView(node:Node,view:EditorView,getPos:()=>number|undefined,copyText:(text:string)=>Promise<unknown>=text=>navigator.clipboard.writeText(text)):NodeView{
   const dom=document.createElement('div');dom.className='editing-code';const header=document.createElement('div');header.className='block-tools';header.contentEditable='false';
   const language=document.createElement('select');language.setAttribute('aria-label','Code language');
   const current=String(node.attrs.params??'').split(/\s/)[0];for(const value of new Set([current,...codeLanguages])){const option=document.createElement('option');option.value=value;option.textContent=value||'plain text';language.append(option);}language.value=current;
@@ -22,7 +22,7 @@ export function codeNodeView(node:Node,view:EditorView,getPos:()=>number|undefin
   const hint=document.createElement('small');const defaultHint=`Tab / Shift+Tab: indent · ${modifierLabel()}+Enter: exit`;hint.textContent=defaultHint;
   const copy=document.createElement('button');copy.type='button';copy.textContent='Copy';copy.title='Copy code';
   copy.onmousedown=event=>event.preventDefault();
-  copy.onclick=()=>{void navigator.clipboard.writeText(node.textContent).then(()=>{hint.textContent='Copied';setTimeout(()=>{if(hint.isConnected)hint.textContent=defaultHint;},1200);},()=>{hint.textContent='Clipboard unavailable';});};
+  copy.onclick=()=>{void copyText(node.textContent).then(()=>{hint.textContent='Copied';setTimeout(()=>{if(hint.isConnected)hint.textContent=defaultHint;},1200);},()=>{hint.textContent='Clipboard unavailable — click Copy to retry';});};
   const wrap=document.createElement('button');wrap.type='button';wrap.textContent='Wrap';wrap.title='Wrap long lines';wrap.setAttribute('aria-pressed','false');
   wrap.onmousedown=event=>event.preventDefault();
   wrap.onclick=()=>{const on=!dom.classList.contains('wrap-code');dom.classList.toggle('wrap-code',on);wrap.setAttribute('aria-pressed',String(on));};

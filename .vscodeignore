@@ -18,3 +18,14 @@ dist/host-tests.cjs
 test-results/**
 playwright-report/**
 docs/**
+.tmp/**
+.env*
+.codex/**
+.agents/**
+.aws/**
+.cache/**
+coverage/**
+release/**
+SHA256SUMS.txt
+*.log
+*.zip

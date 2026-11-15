@@ -38,6 +38,8 @@ MarkYou turns ordinary `.md` files into a click-to-edit document inside VS Code.
 
 ## Highlights
 
+Version 1.1 adds lossless quoted TSV and HTML-table paste, source-scoped occurrence replacement, complete root-file copying, recoverable unapplied drafts, per-document read-only mode, Chinese interface controls, and **More → Export complete Markdown…** with portable local resources. Right-click a reading block for duplicate/delete/move actions. GFM tables always retain their first row as the header.
+
 | | |
 | --- | --- |
 | **Click-to-edit** | Paragraphs, headings, lists, tables, task lists, quotes, code blocks and links edit in place. |
@@ -56,7 +58,7 @@ MarkYou turns ordinary `.md` files into a click-to-edit document inside VS Code.
 
 **Requirements:** Windows x64 and VS Code 1.100 or newer. No separate Chrome or Edge installation is needed.
 
-1. Download `markyou-win32-x64-1.0.0.vsix` from [GitHub Releases](https://github.com/singerawei/markyou/releases).
+1. Download `markyou-win32-x64-1.1.0.vsix` from [GitHub Releases](https://github.com/singerawei/markyou/releases).
 2. In VS Code, open **Extensions**, click **… → Install from VSIX…**, and select the file.
 3. Reload VS Code.
 4. Right-click any `.md` file and choose **Open With… → MarkYou**.
@@ -119,7 +121,7 @@ Requires Node.js 20.19+ (22 recommended). The generated VSIX is ready to install
 | Hide toolbar | `Ctrl+Alt+T` | `Cmd+Alt+T` |
 | Help | `?` or `Ctrl+Alt+H` | `?` or `Cmd+Alt+H` |
 
-All shortcuts are VS Code commands and can be remapped. See [docs/KEYBINDINGS.md](https://github.com/singerawei/markyou/blob/main/docs/KEYBINDINGS.md) for the full list and host conflicts.
+All shortcuts are VS Code commands and can be remapped. See **MarkYou: Help** for the full list and host conflicts.
 
 ## Good to know
 
@@ -127,7 +129,7 @@ All shortcuts are VS Code commands and can be remapped. See [docs/KEYBINDINGS.md
 - **Save As Copy** writes a copy of the root file and keeps you on the current document. The copy must stay in the same folder so relative `@import` paths keep working.
 - Oversized blocks fall back to the Text Editor: code over 128 KiB, prose over 16 KiB, or tables over 200 rows. Large tables keep a read-only preview with an explicit **Edit in Text Editor** action.
 - Wiki embeds (`![[Page]]`) open as clickable cards rather than full transclusions.
-- 1.0.0 targets Windows x64. macOS/Linux builds are not included in this release.
+- 1.1.0 targets Windows x64. macOS/Linux builds are not included in this release.
 
 ## Development
 
@@ -141,6 +143,18 @@ npm run package      # build the VSIX
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution workflow.
+
+## Publishing
+
+The extension identity remains **markyou.markyou**. Marketplace installations receive published stable updates through VS Code's normal extension updates; GitHub uploads alone do not update Marketplace.
+
+1. Set the repository or `marketplace` environment Actions secret **VSCE_PAT** to a token with publish access to the existing `markyou` publisher. Never commit tokens. See the [official publishing guide](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
+2. Update `package.json`, `package-lock.json`, README versions and the changelog together. Push a matching tag: `v1.1.0-preview.1` publishes a Marketplace pre-release; `v1.1.0` publishes a stable release. Marketplace uses the numeric package version `1.1.0` for both channels.
+3. Actions runs Linux/Windows checks and UI tests, packages Windows x64, audits the VSIX, and tests the installed package in isolated VS Code. GitHub Release and Marketplace receive the same tested VSIX. Only VSIX and README files are attached to Releases; generated reports stay in short-lived Actions artifacts.
+4. Stable tags additionally require real-user/IME/PDF/recovery/performance acceptance for the exact VSIX. Download the `markyou-vsix` artifact, test it, attach the completed `acceptance.json` to a draft Release for that tag, then rerun the failed **acceptance** job. `scripts/check-release.mjs` validates hashes and evidence; missing or stale evidence blocks stable publishing. Pre-release tags still require all automated checks.
+5. If Marketplace publishing fails after the GitHub Release is created, configure the secret and rerun only the failed job. Source commits exclude VSIX, Chromium, dependencies, local reviews, reports and credentials through `.gitignore`.
+
+Use **More → Block actions → Edit continuous section** for native selections, cut/delete and undo across adjacent same-source blocks (up to 32 blocks / 32 KiB per writing surface). Includes and source-backed complex blocks form explicit boundaries; cross-source destructive edits remain blocked. Automated tests do not certify real IME, screen-reader or user-study acceptance. A pre-release does not mark those manual stable-release gates complete.
 
 ## License
 

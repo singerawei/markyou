@@ -1,0 +1,106 @@
+{
+  "cpp-standard": {
+    "language": "cpp",
+    "code": "#include <vector>\n// 中文注释\nstd::vector<int> values = {1, 2, 3};\nint main() { return values[0]; }"
+  },
+  "cpp-simple": {
+    "language": "cpp",
+    "code": "// 中文注释\nint main() { return 42; }"
+  },
+  "c": {
+    "language": "c",
+    "code": "#include <stdio.h>\nint main(void) { printf(\"hello\"); return 0; }"
+  },
+  "protobuf": {
+    "language": "protobuf",
+    "code": "syntax = \"proto3\";\npackage demo;\nmessage User {\n  string name = 1;\n  int32 id = 2;\n}\nservice UserService { rpc GetUser(User) returns (User); }"
+  },
+  "proto": {
+    "language": "proto",
+    "code": "syntax = \"proto3\";\nmessage Reply { string value = 1; }"
+  },
+  "protobuf-options": {
+    "language": "protobuf",
+    "code": "syntax = \"proto3\";\nmessage Reply { repeated int32 value = 1 [packed = true]; }"
+  },
+  "typescript": {
+    "language": "typescript",
+    "code": "interface User { name: string; }\nconst user: User = { name: \"中文\" };"
+  },
+  "typescript-generics": {
+    "language": "ts",
+    "code": "function first<T>(values: T[]): T { return values[0]; }"
+  },
+  "javascript-array": {
+    "language": "javascript",
+    "code": "const values = [1, 2, 3];\nconsole.log(values[0]);"
+  },
+  "python": {
+    "language": "python",
+    "code": "def greet(name):\n    # 中文注释\n    return f\"Hello {name}\""
+  },
+  "python-array": {
+    "language": "python",
+    "code": "values = [1, 2, 3]\nprint(values[0])"
+  },
+  "json": {
+    "language": "json",
+    "code": "{ \"name\": \"test\", \"enabled\": true }"
+  },
+  "json-array": {
+    "language": "json",
+    "code": "{ \"items\": [1, 2, 3] }"
+  },
+  "yaml": {
+    "language": "yaml",
+    "code": "name: demo\nenabled: true\nitems:\n  - first\n  - second"
+  },
+  "bash": {
+    "language": "bash",
+    "code": "#!/bin/bash\necho \"hello\"\nif test -f file; then echo yes; fi"
+  },
+  "sql": {
+    "language": "sql",
+    "code": "SELECT id, name FROM users WHERE enabled = TRUE;"
+  },
+  "rust": {
+    "language": "rust",
+    "code": "fn first(values: Vec<i32>) { println!(\"{}\", values[0]); }"
+  },
+  "java": {
+    "language": "java",
+    "code": "public class Main { public static void main(String[] args) { System.out.println(\"hello\"); } }"
+  },
+  "csharp": {
+    "language": "csharp",
+    "code": "List<int> values = new List<int>();"
+  },
+  "go": {
+    "language": "go",
+    "code": "package main\nfunc main() { println(\"hello\") }"
+  },
+  "xml": {
+    "language": "xml",
+    "code": "<root><item value=\"1\">中文</item></root>"
+  },
+  "html": {
+    "language": "html",
+    "code": "<div class=\"card\"><strong>Hello</strong></div>"
+  },
+  "css": {
+    "language": "css",
+    "code": ".card { color: red; padding: 16px; }"
+  },
+  "cmake": {
+    "language": "cmake",
+    "code": "cmake_minimum_required(VERSION 3.20)\nproject(Demo LANGUAGES CXX)\nadd_executable(demo main.cpp)"
+  },
+  "unknown": {
+    "language": "madeup-language",
+    "code": "example plain text & symbols"
+  },
+  "no-language": {
+    "language": "",
+    "code": "example plain text & symbols"
+  }
+}

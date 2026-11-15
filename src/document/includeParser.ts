@@ -64,6 +64,6 @@ export function parsePieces(text: string): SourcePiece[] {
 function unsupported(raw: string): boolean {
   // Preserve extensions and reference syntax that the visual serializer cannot own.
   // These blocks are still rich-rendered; clicking them edits the original source.
-  const withoutTasks = raw.replace(/^(\s*(?:[-*+]|\d+\.)\s+)\[[ xX]\] /gm,'$1');
+  const withoutTasks = raw.replace(/^(\s*(?:[-*+]|\d+\.)\s+)\[[ xX]\] /gm,'$1').replace(/<br\s*\/?\s*>/gi,'');
   return /(\[\^[^\]]+\]|\[\[[^\]]+\]\]|\$\$|(?<!\\)\$[^$\r\n]+\$|\\[()[\]]|^\s*\[[^\]]+\]:|\]\[[^\]]*\]|\[[^\]]+\](?!\()|<\/?(?!https?:|mailto:|ftp:)[A-Za-z!][^>]*>|^\s*:::|^\s*@import\b|^\s*>\s*\[!|^[ \t]*!!![ \t]|^[ \t]*%%|%%[^%\r\n]+%%|^[ \t]*:[ \t]+\S|^\*\[[^\]]+\]:[ \t]*)/mi.test(withoutTasks);
 }

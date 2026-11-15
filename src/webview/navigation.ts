@@ -1,6 +1,8 @@
 import type {Segment} from '../shared/types';
 import {shortcutAria, shortcutLabel} from './shortcuts';
 import {visibleText} from './search';
+import {textMatches,type TextMatch} from '../shared/replacements';
+export type SearchMatch=Segment & {range:TextMatch};
 
 export type NavigationMode = 'find' | 'outline';
 
@@ -26,12 +28,13 @@ export interface NavigationOptions {
   initialPinned?: boolean;
   initialMode?: NavigationMode;
   /** Notify the document so matches can be highlighted in place. */
-  onSearch?: (state: {query: string; sourceMode: boolean; matchCase: boolean; mode: NavigationMode; currentSegmentId?: string}) => void;
+  onSearch?: (state: {query: string; sourceMode: boolean; matchCase: boolean; mode: NavigationMode; currentSegmentId?: string; currentRange?: TextMatch}) => void;
   /** Replace the current match or every match. */
-  onReplace?: (query: string, replacement: string, all: boolean, matchCase: boolean, current: Segment | undefined, sourceMode: boolean) => void;
+  onReplace?: (query: string, replacement: string, all: boolean, matchCase: boolean, current: SearchMatch | undefined, sourceMode: boolean) => void;
 }
 
 interface Entry {
+  range?:TextMatch;
   segment: Segment;
   order: number;
   text: string;
@@ -154,7 +157,7 @@ export class DocumentNavigation {
     this.replaceInput.setAttribute('aria-label', 'Replace with');
     const replace = document.createElement('button');
     replace.type = 'button'; replace.textContent = 'Replace';
-    replace.onclick = () => this.options.onReplace?.(this.input.value, this.replaceInput.value, false, this.matchCase, this.currentMatch(), this.sourceMode);
+    replace.onclick = () => {if(!this.currentMatch()){this.next(1);return;}this.options.onReplace?.(this.input.value, this.replaceInput.value, false, this.matchCase, this.currentMatch(), this.sourceMode);};
     const replaceAll = document.createElement('button');
     replaceAll.type = 'button'; replaceAll.textContent = 'Replace all';
     replaceAll.onclick = () => this.options.onReplace?.(this.input.value, this.replaceInput.value, true, this.matchCase, this.currentMatch(), this.sourceMode);
@@ -277,6 +280,7 @@ export class DocumentNavigation {
   }
 
   show(mode: NavigationMode = this.mode, opener?: HTMLElement, focus = true) {
+    const keepMatch=mode==='find'&&this.mode==='find';
     if (this.element.hidden) {
       this.lastOpener = opener;
       if (opener) this.lastFocus = opener;
@@ -292,8 +296,7 @@ export class DocumentNavigation {
     this.element.hidden = false;
     document.body.classList.add('navigation-open');
     this.options.onVisibilityChange?.(true);
-    this.page = 0;
-    this.cursor = -1;
+    if(!keepMatch){this.page = 0;this.cursor = -1;}
     this.rebuildHeadingIndex();
     if (mode === 'outline' && this.currentId) {
       const rank = this.headingRanks.get(this.currentId);
@@ -482,25 +485,15 @@ export class DocumentNavigation {
           return entry && (!needle || matches(entry)) ? [entry] : [];
         });
       } else {
-        this.matches = needle ? [...this.entries.values()].filter(matches) : [];
+        this.matches = needle ? [...this.entries.values()].flatMap(entry=>textMatches(this.sourceMode?entry.raw:entry.text,query,this.matchCase).map(range=>({...entry,range}))) : [];
       }
     }
-    const countOccurrences = (value: string) => {
-      if (!needle) return 0;
-      const haystack = this.matchCase ? value : value.toLocaleLowerCase();
-      let count = 0;
-      let index = haystack.indexOf(needle);
-      while (index >= 0) { count++; index = haystack.indexOf(needle, index + Math.max(1, needle.length)); }
-      return count;
-    };
-    this.occurrenceCount = this.mode === 'find'
-      ? this.matches.reduce((sum, entry) => sum + countOccurrences(this.sourceMode ? entry.raw : entry.text), 0)
-      : this.matches.length;
+    this.occurrenceCount=this.matches.length;
     this.page = clampNumber(this.page, 0, Math.max(0, Math.ceil(this.matches.length / PAGE_SIZE) - 1));
     this.cursor = this.matches.length ? Math.min(this.cursor, this.matches.length - 1) : -1;
     this.paint();
     if (!this.element.hidden) {
-      this.options.onSearch?.({query: this.query, sourceMode: this.sourceMode, matchCase: this.matchCase, mode: this.mode, currentSegmentId: this.currentMatch()?.id});
+      this.options.onSearch?.({query: this.query, sourceMode: this.sourceMode, matchCase: this.matchCase, mode: this.mode, currentSegmentId: this.currentMatch()?.id, currentRange:this.currentMatch()?.range});
     }
     if (this.mode === 'outline') this.scheduleCurrentUpdate();
   }
@@ -509,7 +502,7 @@ export class DocumentNavigation {
   refresh() { this.search(); }
 
   private currentMatch() {
-    return this.cursor >= 0 ? this.matches[this.cursor]?.segment : undefined;
+    return this.cursor >= 0 ? this.matches[this.cursor]?.range ? {...this.matches[this.cursor].segment,range:this.matches[this.cursor].range!} : undefined : undefined;
   }
 
   private paint() {
@@ -533,7 +526,7 @@ export class DocumentNavigation {
       this.summary.textContent = `${this.matches.length} heading${this.matches.length === 1 ? '' : 's'}${this.outlineQuery.trim() ? ' matching this filter' : ''}${this.matches.length > PAGE_SIZE ? ` · ${first}-${last}` : ''}`;
     } else {
       this.summary.textContent = this.query.trim()
-        ? `${this.occurrenceCount} match${this.occurrenceCount === 1 ? '' : 'es'}${this.sourceMode ? ' in source' : ''}${this.matches.length > PAGE_SIZE ? ` · ${first}-${last} blocks` : ''}`
+        ? `${this.occurrenceCount} match${this.occurrenceCount === 1 ? '' : 'es'}${this.sourceMode ? ' in source' : ''}${this.matches.length > PAGE_SIZE ? ` · ${first}-${last} matches` : ''}`
         : 'Type to find text in this document.';
     }
     this.paintPagination(pageCount);
@@ -549,7 +542,7 @@ export class DocumentNavigation {
     button.dataset.index = String(index);
     const text = entry.heading || firstVisibleLine(entry.text) || '(empty block)';
     button.textContent = text;
-    button.title = text;
+    button.title = `${entry.segment.sourceFile} ? ${text}`;
     button.setAttribute('aria-label', `${entry.heading ? `Heading ${entry.level}: ` : ''}${text}`);
     button.onclick = () => this.choose(entry, index);
     return button;
@@ -588,7 +581,7 @@ export class DocumentNavigation {
   private choose(entry: Entry, index: number) {
     this.cursor = index;
     this.options.jump(entry.segment, this.mode === 'find' ? this.query : undefined, true);
-    this.options.onSearch?.({query: this.mode === 'find' ? this.query : '', sourceMode: this.sourceMode, matchCase: this.matchCase, mode: this.mode, currentSegmentId: entry.segment.id});
+    this.options.onSearch?.({query: this.mode === 'find' ? this.query : '', sourceMode: this.sourceMode, matchCase: this.matchCase, mode: this.mode, currentSegmentId: entry.segment.id, currentRange:entry.range});
     if (this.mode === 'outline') this.setCurrent(entry.segment.id);
     this.paintCurrent();
     if (!this.pinned) this.close({restoreFocus: true, keepHighlights: this.mode === 'find'});
@@ -602,7 +595,7 @@ export class DocumentNavigation {
     this.paint();
     const entry = this.matches[this.cursor];
     this.options.jump(entry.segment, this.mode === 'find' ? this.query : undefined, true);
-    this.options.onSearch?.({query: this.mode === 'find' ? this.query : '', sourceMode: this.sourceMode, matchCase: this.matchCase, mode: this.mode, currentSegmentId: entry.segment.id});
+    this.options.onSearch?.({query: this.mode === 'find' ? this.query : '', sourceMode: this.sourceMode, matchCase: this.matchCase, mode: this.mode, currentSegmentId: entry.segment.id, currentRange:entry.range});
     if (this.mode === 'outline') this.setCurrent(entry.segment.id);
     this.results.querySelector<HTMLElement>(`[data-navigation-id=${cssEscape(entry.segment.id)}]`)?.focus();
   }
@@ -673,7 +666,7 @@ export class DocumentNavigation {
     }
     let marked = 0;
     for (const button of buttons) {
-      const active = button.dataset.navigationId === activeId && marked === 0;
+      const active = (this.mode==='find'&&this.cursor>=0?Number(button.dataset.index)===this.cursor:button.dataset.navigationId === activeId) && marked === 0;
       if (active) {
         button.setAttribute('aria-current', 'location');
         button.classList.add('navigation-current');

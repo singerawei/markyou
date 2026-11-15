@@ -8,4 +8,4 @@ Never regenerate untouched Markdown blocks or flatten included content into the 
 Include regressions for ownership, data loss, conflicts or security fixes. Preserve unsupported syntax.
 
 Performance reports must identify the machine, VS Code version and measurement scope.
-Headless browser or model timings alone cannot certify the final VS Code release gates in `dev.md`.
+Headless browser or model timings alone cannot certify the installed-package and manual acceptance gates described in [README.md](README.md#publishing). Store generated reports locally or in Actions artifacts, not in source commits.

@@ -1,7 +1,7 @@
 import type {EditorView} from 'prosemirror-view';
 import type {EditorState} from 'prosemirror-state';
 import type {Node as PMNode} from 'prosemirror-model';
-import {isInTable,selectedRect,addRowBefore,addRowAfter,addColumnBefore,addColumnAfter,deleteRow,deleteColumn,deleteTable,toggleHeaderRow} from 'prosemirror-tables';
+import {isInTable,selectedRect,CellSelection,addRowBefore,addRowAfter,addColumnBefore,addColumnAfter,deleteRow,deleteColumn,deleteTable} from 'prosemirror-tables';
 import {schema,serializer} from './schema';
 
 export interface TableToolbarOptions {
@@ -63,7 +63,10 @@ export function createTableToolbar(view: EditorView, options: TableToolbarOption
   button('Center', 'Align column center', () => alignColumn(view, 'center'));
   button('Right', 'Align column right', () => alignColumn(view, 'right'));
   separator();
-  button('Header', 'Toggle header row', () => toggleHeaderRow(view.state, view.dispatch));
+  const header = document.createElement('span');
+  header.textContent = 'GFM header';
+  header.title = 'GFM tables always include a header row. Row count includes the header.';
+  toolbar.append(header);
   button('Delete', 'Delete table', () => deleteTable(view.state, view.dispatch));
   separator();
   button('Copy TSV', 'Copy table as tab-separated values', () => {
@@ -133,51 +136,92 @@ export function alignColumn(view: EditorView, align: 'left' | 'center' | 'right'
 }
 
 export function parseTSV(text: string): string[][] {
-  const normalized = text.replace(/\r\n?/g, '\n').replace(/\n+$/, '');
-  if (!normalized) return [];
-  return normalized.split('\n').map(row => row.split('\t').map(cell => cell.trim()));
+  if (!text) return [];
+  const rows: string[][] = []; let row: string[] = []; let cell = ''; let quoted = false;
+  const value = text.replace(/\r\n?/g, '\n');
+  for (let i = 0; i < value.length; i++) {
+    const char = value[i];
+    if (char === '"' && (quoted || cell === '')) {
+      if (quoted && value[i + 1] === '"') { cell += '"'; i++; }
+      else quoted = !quoted;
+    } else if (!quoted && (char === '\t' || char === '\n')) {
+      row.push(cell); cell = '';
+      if (char === '\n') { rows.push(row); row = []; }
+    } else cell += char;
+  }
+  // A terminal newline terminates a record; a second one is an empty record.
+  if (row.length || cell || !value.endsWith('\n')) { row.push(cell); rows.push(row); }
+  if(quoted)return value.split('\n').map(row=>row.split('\t'));
+  return rows;
+}
+
+export function encodeTSV(rows: string[][]): string {
+  return rows.map(row => row.map(value => /[\t\n\r"]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value).join('\t')).join('\n');
+}
+
+/** Read only cell text, ignoring clipboard styles and executable markup. */
+export function htmlTableMatrix(html: string): string[][] | undefined {
+  if (!/<table\b/i.test(html)) return undefined;
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const table = doc.querySelector('table'); if (!table) return undefined;
+  for (const node of table.querySelectorAll('script,style,noscript')) node.remove();
+  for (const br of table.querySelectorAll('br')) br.replaceWith('\n');
+  return [...table.rows].map(row => [...row.cells].map(cell => cell.textContent ?? ''));
 }
 
 /** Paste TSV into the current table, expanding rows and columns as needed. */
-export function pasteTSV(view: EditorView, text: string): boolean {
-  const rows = parseTSV(text);
+export function pasteTSV(view: EditorView, text: string, matrixInput?: string[][]): boolean {
+  let rows = matrixInput ?? parseTSV(text);
   if (!rows.length) return false;
+  const inputWidth=Math.max(...rows.map(row=>row.length));
+  rows=rows.map(row=>Array.from({length:inputWidth},(_,i)=>row[i]??''));
+  if(rows.length-1>200||rows.length*inputWidth>5000){
+    window.dispatchEvent(new CustomEvent('table-paste-limit',{detail:{rows:rows.length,columns:inputWidth}}));
+    return true;
+  }
   const wide = rows.some(row => row.length > 1);
   const tall = rows.length > 1;
   const state = view.state;
   if (!isInTable(state)) {
     if (!wide && !tall) return false;
     const node = tableNodeFromMatrix(rows.map((row, index) => row.map(value => inlineCell(value, index === 0))), true);
-    view.dispatch(state.tr.replaceSelectionWith(node).scrollIntoView());
+    view.dispatch(state.tr.replaceSelectionWith(node).setMeta('paste',true).scrollIntoView());
     return true;
   }
   const rect = selectedRect(state);
+  if (state.selection instanceof CellSelection && rows.length === 1 && rows[0].length === 1) {
+    rows = Array.from({length: rect.bottom - rect.top}, () => Array.from({length: rect.right - rect.left}, () => rows[0][0]));
+  }
   const matrix = tableToMatrix(rect.table);
   const header = isHeaderTable(rect.table);
   const height = Math.max(matrix.length, rect.top + rows.length);
   const width = Math.max(matrix[0]?.length ?? 0, rect.left + Math.max(...rows.map(row => row.length)));
+  if(height-1>200||height*width>5000){window.dispatchEvent(new CustomEvent('table-paste-limit',{detail:{rows:height,columns:width}}));return true;}
   while (matrix.length < height) matrix.push([]);
   for (const row of matrix) while (row.length < width) row.push({content: [], attrs: {}, header: false});
+  let overwritten=0;
   rows.forEach((row, rowIndex) => {
     row.forEach((value, columnIndex) => {
       const target = matrix[rect.top + rowIndex]?.[rect.left + columnIndex];
       if (!target) return;
-      target.content = inlineFromText(value.replace(/\\n/g, '\n'));
+      if(target.content.some(node=>!!node.textContent||node.type.name==='hard_break'))overwritten++;
+      target.content = inlineFromText(value);
       target.header = header && rect.top + rowIndex === 0;
     });
   });
   const node = tableNodeFromMatrix(matrix, header);
   const tablePos = rect.tableStart - 1;
-  view.dispatch(state.tr.replaceWith(tablePos, tablePos + rect.table.nodeSize, node).scrollIntoView());
+  view.dispatch(state.tr.replaceWith(tablePos, tablePos + rect.table.nodeSize, node).setMeta('paste',true).scrollIntoView());
+  window.dispatchEvent(new CustomEvent('table-paste-summary',{detail:{overwritten,rows:rows.length,columns:inputWidth}}));
   return true;
 }
 
-export function tableAsTSV(state: EditorState): string | undefined {
+export function tableAsTSV(state: EditorState, selectionOnly = false): string | undefined {
   if (!isInTable(state)) return undefined;
-  const rows = tableToMatrix(selectedRect(state).table);
-  // Keep cell line breaks readable in TSV without breaking row parsing; paste
-  // converts the literal \n back into a hard break.
-  return rows.map(row => row.map(cell => cell.content.map(node => node.type.name === 'hard_break' ? '\\n' : node.textContent).join('')).join('\t')).join('\n');
+  const rect = selectedRect(state);
+  let rows = tableToMatrix(rect.table);
+  if (selectionOnly) rows = rows.slice(rect.top, rect.bottom).map(row => row.slice(rect.left, rect.right));
+  return encodeTSV(rows.map(row => row.map(cell => cell.content.map(node => node.type.name === 'hard_break' ? '\n' : node.textContent).join(''))));
 }
 
 export function tableAsMarkdown(state: EditorState): string | undefined {
@@ -212,7 +256,7 @@ function inlineFromText(value: string) {
 }
 
 function inlineCell(value: string, header: boolean): CellShape {
-  return {content: inlineFromText(value.replace(/\\n/g, '\n')), attrs: header ? {} : {}, header};
+  return {content: inlineFromText(value), attrs: {}, header};
 }
 
 function tableNodeFromMatrix(matrix: CellShape[][], header: boolean) {

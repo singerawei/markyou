@@ -6,11 +6,12 @@ import { SourceRepository } from '../../src/document/sourceFile';
 import { DocumentGraph } from '../../src/document/documentGraph';
 import type { PieceEdit } from '../../src/shared/types';
 import { markdown } from '../../bench/generator';
+import {replaceMatches} from '../../src/shared/replacements';
 
-async function launch(page:Page,files:Record<string,string>) {
+async function launch(page:Page,files:Record<string,string>,options:{markdownDelay?:number;locale?:string}={}) {
   page.on('pageerror',error => process.stderr.write(`Webview error: ${String(error)}\n`));
   const writes:string[] = [], history:PieceEdit[][] = [], redos:PieceEdit[][] = [], errors:string[] = [];
-  const sent:any[]=[];let clipboard='';
+  const sent:any[]=[];let clipboard='';const plans=new Map<string,{count:number;changes:PieceEdit[]}>();
   const preferences:Record<string,unknown>={};
   const repository = new SourceRepository({
     read:async uri => { if (!(uri in files)) throw new Error('missing'); return files[uri]; },
@@ -19,6 +20,7 @@ async function launch(page:Page,files:Record<string,string>) {
   });
   const graph = new DocumentGraph(repository,'file:///C:/docs/MASTER.md'); await graph.build();
   await page.setContent('<!doctype html><html><head><meta charset="utf-8"></head><body><header><strong>MarkYou</strong><span id="title"></span><button id="save">保存</button></header><nav id="toolbar"></nav><div id="statusbar" role="status"><span id="status">Ready</span></div><div id="readonly-banner" hidden><span>Read-only preview — editing is disabled</span><button type="button" id="enable-editing">Enable editing</button></div><aside id="conflicts"></aside><div id="notice" hidden></div><main id="document"></main><footer>本地 Markdown · 点击正文编辑 · Ctrl/Cmd+S 保存</footer></body></html>');
+  if(options.locale)await page.evaluate(locale=>document.documentElement.lang=locale,options.locale);
   const publish = (message:unknown) => page.evaluate(message => window.postMessage(message,'*'),message);
   const publishDocument = async () => {
     await graph.build();
@@ -34,7 +36,7 @@ async function launch(page:Page,files:Record<string,string>) {
       if(message.type==='copy'){clipboard=message.text;await publish({type:'result',id:message.id,result:true});return;}
       if(message.type==='preference'){preferences[message.key]=message.value;await publish({type:'preferences',preferences});return;}
       if(message.type==='display-preference'){Object.assign(preferences,message.patch);await publish({type:'preferences',preferences});return;}
-      if(message.type==='document-markdown'){const source=repository.sources.get(root);await publish({type:'result',id:message.id,result:source?source.pieces.map(piece=>piece.raw).join(''):files[root]??''});return;}
+      if(message.type==='document-markdown'){if(options.markdownDelay)await new Promise(resolve=>setTimeout(resolve,options.markdownDelay));const source=repository.sources.get(root);await publish({type:'result',id:message.id,result:source?source.pieces.map(piece=>piece.raw).join(''):files[root]??''});return;}
       if(message.type==='workspace-files'){await publish({type:'result',id:message.id,result:[]});return;}
       if(message.type==='insert-block'){
         const uri=message.uri&&repository.sources.has(message.uri)?message.uri:root;
@@ -53,22 +55,30 @@ async function launch(page:Page,files:Record<string,string>) {
         await publish({type:'status',dirty:[uri],history:{undo:1,redo:0},conflicts:[]});
         await publish({type:'result',id:message.id,result:true});return;
       }
-      if(message.type==='replace'){
-        const needle=String(message.query);const replacement=String(message.replacement??'');let count=0;const changes:PieceEdit[]=[];
-        for(const source of repository.sources.values())for(const piece of source.pieces){if(piece.kind!=='markdown')continue;if(message.uri&&source.uri!==message.uri)continue;if(message.pieceId&&piece.id!==message.pieceId)continue;if(!piece.raw.includes(needle))continue;const after=message.all?piece.raw.split(needle).join(replacement):piece.raw.replace(needle,replacement);if(after!==piece.raw){changes.push({uri:source.uri,pieceId:piece.id,before:piece.raw,after});count+=message.all?piece.raw.split(needle).length-1:1;}if(!message.all&&changes.length)break;}
-        if(changes.length){repository.apply(changes,'after',false);history.push(changes);redos.length=0;}
+      if(message.type==='replace'||message.type==='preview-replace'){
+        let count=0;let changes:PieceEdit[]=[];
+        for(const source of repository.sources.values())for(const piece of source.pieces){
+          if(piece.kind!=='markdown'||(!message.all&&(source.uri!==message.uri||piece.id!==message.pieceId)))continue;
+          const result=replaceMatches(piece.raw,String(message.query),String(message.replacement??''),!!message.sourceMode,!!message.matchCase,message.all?undefined:message.range);
+          if(result.count&&result.after!==piece.raw){changes.push({uri:source.uri,pieceId:piece.id,before:piece.raw,after:result.after});count+=result.count;}
+        }
+        if(message.type==='preview-replace'){const plan=String(plans.size);plans.set(plan,{count,changes});await publish({type:'result',id:message.id,result:{count,plan,files:[...new Set(changes.map(change=>change.uri))]}});return;}
+        if(message.plan){const plan=plans.get(message.plan)!;changes=plan.changes;count=plan.count;}
+        if(changes.length){repository.apply(changes,'after',true);history.push(changes);redos.length=0;}
         await publish({type:'result',id:message.id,result:{count,pieces:changes.length}});return;
       }
       if (message.type === 'edit') {
         const changes = [{uri:message.uri,pieceId:message.pieceId,before:message.before,after:message.text}];
         repository.apply(changes,'after',true,message.origin); history.push(changes); redos.length = 0;
+      } else if(message.type==='edit-region'){
+        repository.apply(message.changes,'after',true,message.origin);history.push(message.changes);redos.length=0;
       } else if (message.type === 'save') await repository.save(graph.sourceUris);
       else if (message.type === 'undo') { const edits = history.pop(); if (edits) { repository.apply(edits,'before',false); redos.push(edits); } }
       else if (message.type === 'redo') { const edits = redos.pop(); if (edits) { repository.apply(edits,'after',false); history.push(edits); } }
     } catch (error) { errors.push(String(error)); }
   });
   await page.evaluate(() => {
-    (window as any).acquireVsCodeApi = () => ({postMessage:(message:any) => (window as any).host(message),getState:() => ({}),setState:() => {}});
+    (window as any).acquireVsCodeApi = () => ({postMessage:(message:any) => (window as any).host(message),getState:() => (window as any).__webviewState??{},setState:(value:any) => {(window as any).__webviewState=value;}});
   });
   await page.addStyleTag({path:resolve('dist/editor.css')});
   await page.addScriptTag({path:resolve('dist/mermaid-runtime.js')});
@@ -79,6 +89,79 @@ async function launch(page:Page,files:Record<string,string>) {
   return {repository,graph,writes,files,errors,publish,publishDocument,openMs,sent,preferences,get clipboard(){return clipboard;}};
 }
 const root = 'file:///C:/docs/MASTER.md', child = 'file:///C:/docs/payment.md';
+
+test('continuous same-source section selects and deletes heading, paragraphs and list in one undo step',async({page})=>{
+  const raw='# Section\n\nFirst paragraph.\n\nSecond paragraph.\n\n- One\n- Two\n';
+  const host=await launch(page,{[root]:raw});
+  await page.getByText('First paragraph.',{exact:true}).click();
+  await page.getByRole('button',{name:'More',exact:true}).click();await page.getByRole('menuitem',{name:'Block actions',exact:true}).click();await page.getByRole('button',{name:'Edit continuous section',exact:true}).click();
+  await expect(page.locator('.ProseMirror h1')).toHaveText('Section');await expect(page.locator('.ProseMirror li')).toHaveCount(2);
+  await page.locator('.ProseMirror').press('Control+a');await page.keyboard.press('Delete');
+  await expect.poll(()=>host.repository.sources.get(root)!.pieces.map(piece=>piece.raw).join('').trim()).toBe('');
+  await page.keyboard.press('Control+z');
+  await expect.poll(()=>host.repository.sources.get(root)!.pieces.map(piece=>piece.raw).join('')).toBe(raw);
+  await expect(page.locator('.ProseMirror h1')).toHaveText('Section');await expect(page.locator('.ProseMirror li')).toHaveCount(2);
+});
+
+test('Chinese chrome follows VS Code language while document content stays literal',async({page})=>{
+  await launch(page,{[root]:'# Outline\n\nCopy\n'},{locale:'zh-CN'});
+  await expect(page.getByRole('button',{name:'插入',exact:true})).toBeVisible();
+  await expect(page.locator('#document p').filter({hasText:/^Copy$/})).toHaveText('Copy');
+  await page.getByRole('button',{name:'更多',exact:true}).click();await expect(page.getByRole('menuitem',{name:'导出完整 Markdown…',exact:true})).toBeVisible();
+});
+
+test('immediate full copy waits for the complete model, including formulas and imports',async({page})=>{
+  const raw='---\ntitle: Copy\n---\n\nBody text.\n\n$$\nx^2+y^2\n$$\n\n<!-- secret comment -->\n\n@import "./payment.md"\n';
+  const host=await launch(page,{[root]:raw,[child]:'Child text\n'},{markdownDelay:2000});
+  await page.evaluate(()=>window.postMessage({type:'command',command:'select-all-document'},'*'));
+  await page.evaluate(()=>document.dispatchEvent(new ClipboardEvent('copy',{bubbles:true,cancelable:true})));
+  expect(host.clipboard).toBe('');
+  await expect.poll(()=>host.clipboard,{timeout:5000}).toBe(raw);
+});
+
+test('table paste preserves paths, spaces, quoted newlines and stays GFM after reopening',async({page})=>{
+  const host=await launch(page,{[root]:'| A | B |\n| --- | --- |\n| start | end |\n'});
+  await page.getByRole('cell',{name:'start',exact:true}).click();
+  await page.locator('.ProseMirror td').first().click();
+  await page.evaluate(()=>{const data=new DataTransfer();data.setData('text/plain','C:\\new\t  padded  \n"first\nsecond"\t00123');document.querySelector('.ProseMirror')!.dispatchEvent(new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true}));});
+  await expect(page.locator('.ProseMirror td').nth(0)).toHaveText('C:\\new');
+  await expect(page.locator('.ProseMirror td').nth(1)).toHaveText('  padded  ');
+  await page.keyboard.press('Control+s');
+  await expect.poll(()=>host.files[root]).toContain('<br>');
+  expect(host.files[root]).not.toContain('<table>');
+  await page.locator('.ProseMirror').press('Escape');
+  await host.publishDocument();
+  await page.getByRole('cell',{name:'C:\\new',exact:true}).click();
+  await expect(page.locator('.ProseMirror table')).toBeVisible();
+  await expect(page.locator('.html-visual-editor')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Toggle header row',exact:true})).toHaveCount(0);
+});
+
+test('each occurrence navigates separately and replacing the second child match preserves root',async({page})=>{
+  const host=await launch(page,{[root]:'word root\n\n@import "./payment.md"\n',[child]:'word word word child\n'});
+  await page.keyboard.press('Control+f');await page.getByLabel('Find in document').fill('word');
+  await expect(page.locator('.navigation-result')).toHaveCount(4);
+  await page.locator('.navigation-result').nth(2).click();
+  await page.keyboard.press('Control+f');await page.getByLabel('Replace with').fill('CHANGED');
+  await page.getByRole('button',{name:'Replace',exact:true}).click();
+  await expect.poll(()=>host.repository.sources.get(child)!.pieces.map(piece=>piece.raw).join('')).toBe('word CHANGED word child\n');
+  expect(host.repository.sources.get(root)!.pieces[0].raw).toBe('word root\n\n');
+});
+
+test('unapplied source draft survives restoration and Ctrl+S applies before saving',async({page})=>{
+  const host=await launch(page,{[root]:'$$\nx^2\n$$\n'});
+  await page.locator('.math-block').click();await page.getByLabel('Block source').fill('$$\nx^3\n$$\n');
+  await expect(page.getByRole('button',{name:'Unapplied drafts (1)',exact:true})).toBeVisible();
+  expect(host.repository.sources.get(root)!.pieces[0].raw).toContain('x^2');
+  const draft=[...host.sent].reverse().find(message=>message.type==='draft'&&!message.draft.remove).draft;
+  await page.getByLabel('Block source').press('Control+s');
+  await expect(page.locator('.block-editor-dialog')).toHaveCount(0);
+  await expect.poll(()=>host.files[root]).toContain('x^3');
+  await host.publish({type:'drafts',drafts:[draft]});
+  await page.getByRole('button',{name:'Unapplied drafts (1)',exact:true}).click();
+  await expect(page.getByLabel('Block source')).toHaveValue('$$\nx^3\n$$\n');
+  await page.getByRole('button',{name:'Cancel',exact:true}).click();
+});
 
 async function openOutline(page:Page){await page.keyboard.press('Control+Shift+O');await expect(page.locator('#navigation')).toBeVisible();}
 async function bodyTarget(page:Page,text='Body text.'){await page.getByText(text,{exact:true}).click();await expect(page.locator('.ProseMirror')).toHaveCount(1);}
@@ -279,8 +362,8 @@ test('read-only blocks diagram editing and copies through the host',async({page}
   await expect(page.locator('#source-status')).toHaveCount(0);expect(host.sent.filter(message=>message.type==='edit')).toHaveLength(0);
 });
 test('all 26 review samples render as code; aliases and editing keys work',async({page})=>{
-  const literal=readFileSync('docs/review-artifacts/interaction-audit.ts','utf8').match(/const cases:[^\r\n]*=({[\s\S]*?});\s*const report/)![1];const samples=Function('return ('+literal+')')()as Record<string,{language:string;code:string}>;
-  const host=await launch(page,{[root]:'# Architecture\n\n'+Object.values(samples).map(sample=>'```'+sample.language+'\n'+sample.code+'\n```\n\n').join('')});await expect(page.locator('.raw-preview')).toHaveCount(0);await expect(page.locator('pre > code')).toHaveCount(26);expect(await page.locator('.hljs-keyword').count()).toBeGreaterThan(15);await mkdir('docs/review-artifacts/response-1.0.0/ui',{recursive:true});for(const [index,name]of Object.keys(samples).entries()){const block=page.locator('pre').nth(index);await block.scrollIntoViewIfNeeded();await block.screenshot({path:'docs/review-artifacts/response-1.0.0/ui/code-'+name.replace(/[^a-z0-9-]/gi,'_')+'.png'});}
+  const samples=JSON.parse(readFileSync('tests/fixtures/code-cases.json','utf8')) as Record<string,{language:string;code:string}>;
+  const host=await launch(page,{[root]:'# Architecture\n\n'+Object.values(samples).map(sample=>'```'+sample.language+'\n'+sample.code+'\n```\n\n').join('')});await expect(page.locator('.raw-preview')).toHaveCount(0);await expect(page.locator('pre > code')).toHaveCount(26);expect(await page.locator('.hljs-keyword').count()).toBeGreaterThan(15);await mkdir('test-results/code-screenshots',{recursive:true});for(const [index,name]of Object.keys(samples).entries()){const block=page.locator('pre').nth(index);await block.scrollIntoViewIfNeeded();await block.screenshot({path:'test-results/code-screenshots/code-'+name.replace(/[^a-z0-9-]/gi,'_')+'.png'});}
   const code=page.locator('pre > code').first();await code.click();await expect(page.locator('.editing-code select')).toHaveValue('cpp');await expect(page.locator('.ProseMirror .hljs-keyword').first()).toBeVisible();await page.locator('.ProseMirror').press('Control+Home');await page.keyboard.press('Tab');await expect.poll(()=>host.repository.sources.get(root)!.pieces.some(piece=>piece.raw.includes('  #include'))).toBe(true);await page.keyboard.press('Shift+Tab');await page.locator('.editing-code select').selectOption('protobuf');await expect.poll(()=>host.files[root]).toContain('Architecture');await page.keyboard.press('Control+s');await expect.poll(()=>host.files[root]).toContain('```protobuf');
 });
 test('30k navigation hits stay bounded and panel switches do not hide it',async({page})=>{

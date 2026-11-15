@@ -29,7 +29,7 @@ MarkYou は、普通の `.md` ファイルを VS Code 内でクリックして�
 
 大きくなる文書のために作られています。`@import` で複数のファイルを 1 つの連続した文書にまとめ、読み込まれたセクションをその場で編集し、実際に変更されたソースファイルだけを保存します。アカウント、データベース、テレメトリー、ブラウザーは不要です。
 
-> **プレビュー版：** 1.0.0 は Windows x64 向けのプレビューです。[GitHub Releases](https://github.com/singerawei/markyou/releases) からインストールしてください。
+> **プレビュー版：** 1.1.0 は Windows x64 向けのプレビューです。[GitHub Releases](https://github.com/singerawei/markyou/releases) からインストールしてください。
 
 ## 選ばれる理由
 
@@ -54,7 +54,7 @@ MarkYou は、普通の `.md` ファイルを VS Code 内でクリックして�
 
 **要件：** Windows x64、VS Code 1.100 以降。Chrome や Edge を別途インストールする必要はありません。
 
-1. [GitHub Releases](https://github.com/singerawei/markyou/releases) から `markyou-win32-x64-1.0.0.vsix` をダウンロードします。
+1. [GitHub Releases](https://github.com/singerawei/markyou/releases) から `markyou-win32-x64-1.1.0.vsix` をダウンロードします。
 2. VS Code で **拡張機能** を開き、**… → VSIX からインストール…** をクリックしてファイルを選択します。
 3. VS Code を再読み込みします。
 4. `.md` ファイルを右クリックし、**アプリケーションから開く… → MarkYou** を選択します。
@@ -121,7 +121,7 @@ Node.js 20.19+（22 推奨）が必要です。生成された VSIX はそのま
 | ツールバーの表示切替 | `Ctrl+Alt+T` | `Cmd+Alt+T` |
 | ヘルプ | `?` または `Ctrl+Alt+H` | `?` または `Cmd+Alt+H` |
 
-すべてのショートカットは VS Code のコマンドで、変更できます。完全な一覧とホスト側の競合については [docs/KEYBINDINGS.md](https://github.com/singerawei/markyou/blob/main/docs/KEYBINDINGS.md) を参照してください。
+すべてのショートカットは VS Code のコマンドで、変更できます。完全な一覧とホスト側の競合については **MarkYou: Help** を参照してください。
 
 ## 補足
 
@@ -129,7 +129,7 @@ Node.js 20.19+（22 推奨）が必要です。生成された VSIX はそのま
 - **名前を付けて保存** は、相対インクルードを維持するため同じフォルダー内に保存する必要があります。
 - 編集上限を超えたブロックはテキストエディターにフォールバックします：コード 128 KiB、本文 16 KiB、表 200 行。
 - Wiki 埋め込み（`![[Page]]`）はクリック可能なカードとして開き、全文のトランスクルージョンにはなりません。
-- 1.0.0 プレビューは Windows x64 向けです。安定版のリリースゲートは、実利用、IME、長いスクロール、インストールの証拠をまだ収集中です。
+- 1.1.0 プレビューは Windows x64 向けです。安定版のリリースゲートは、実利用、IME、長いスクロール、インストールの証拠をまだ収集中です。
 
 ## 開発
 

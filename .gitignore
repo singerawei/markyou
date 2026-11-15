@@ -12,3 +12,34 @@ playwright-report/
 Thumbs.db
 test_apply_patch.txt
 docs/review-artifacts/interaction/audit.json
+
+# Local reviews, measurements and generated reports are not source releases.
+docs/review-artifacts/
+bench/results/
+docs/PRD_UX_*.md
+docs/REQUIREMENTS*.md
+*.log
+coverage/
+.cache/
+.tmp/
+tmp/
+*.tmp
+*.bak
+
+# Credentials and machine-specific configuration.
+.env
+.env.*
+!.env.example
+.vsce
+.vsce-sign
+.codex/
+.agents/
+.aws/
+
+# VSIX belongs to GitHub Release assets, never to Git source history.
+*.zip
+*.7z
+docs/
+dev.md
+scripts/*review*
+SHA256SUMS.txt

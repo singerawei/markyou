@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { chromium } from 'playwright-core';
-import { join,dirname,resolve } from 'node:path';
+import { join,dirname,resolve,relative,isAbsolute } from 'node:path';
 import { readFile,realpath,writeFile,rm,mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -10,7 +10,8 @@ import {frontmatterHtml,isFrontmatter} from '../shared/frontmatter';
 import { randomUUID } from 'node:crypto';
 import type { CompositeDocument } from './compositeDocument';
 
-export interface PdfOptions {format:'A4'|'A3'|'Letter';landscape:boolean;margin:number;fontSize:number;header:string;footer:string;pageNumbers:boolean;headingBreak:boolean;preview?:boolean}
+export interface PdfOptions {format:'A4'|'A3'|'Letter';landscape:boolean;margin:number;fontSize:number;header:string;footer:string;pageNumbers:boolean;headingBreak:boolean;preview?:boolean;allowMissingResources?:boolean}
+const remoteImages=new Map<string,{data:string;expires:number}>();
 const escape = (text:string) => text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 export async function exportPdf(document:CompositeDocument,extensionPath:string,options:PdfOptions) {
   if (!['A4','A3','Letter'].includes(options.format) || !Number.isFinite(options.margin) || options.margin<0 || options.margin>60 || !Number.isFinite(options.fontSize) || options.fontSize<8 || options.fontSize>32) throw new Error('Invalid PDF settings.');
@@ -20,6 +21,11 @@ export async function exportPdf(document:CompositeDocument,extensionPath:string,
   // Snapshot the complete composition, including unsaved blocks, before launching Chromium.
   const segments = document.graph.segments.map(segment => ({...segment,text:document.repository.sources.get(segment.sourceUri)?.pieceById.get(segment.pieceId)?.raw ?? segment.text}));
   const broken = segments.find(segment => segment.error); if (broken) throw new Error(broken.error);
+  return vscode.window.withProgress({location:vscode.ProgressLocation.Notification,title:'Exporting PDF',cancellable:true},async(progress,token)=>{
+  const resourceAbort=new AbortController();const resourceSubscription=token.onCancellationRequested(()=>resourceAbort.abort());
+  progress.report({message:'Preparing resources…'});
+  try{
+  if(token.isCancellationRequested)return;
   const md = markdownTokenizer(true);
   const env: MarkdownEnv = {
     references: collectReferences(segments.map(segment => segment.text)),
@@ -28,31 +34,46 @@ export async function exportPdf(document:CompositeDocument,extensionPath:string,
   };
   let currentUri = '';
   const images:Promise<void>[] = [];
+  const failures:string[]=[];
+  const downloads=new Map<string,Promise<string>>();
   md.renderer.rules.image = (tokens,index) => {
     const token = tokens[index], src = String(token.attrGet('src') ?? '');
     const id = randomUUID(); const owner = currentUri;
+    const capture=(promise:Promise<void>)=>images.push(promise.catch(error=>{
+      failures.push(`${owner.split('/').pop()}: ${src} — ${String(error)}`);
+      const placeholder=`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="50"><rect width="600" height="50" fill="#fff0e0"/><text x="10" y="30" font-size="14">Missing image: ${escape(token.content||src)}</text></svg>`;
+      imageData.set(id,'data:image/svg+xml;base64,'+Buffer.from(placeholder).toString('base64'));
+    }));
     if (/^https?:\/\//i.test(src)) {
-      images.push((async () => {
+      capture((async () => {
+        const cached=remoteImages.get(src);if(cached&&cached.expires>Date.now()){imageData.set(id,cached.data);return;}
+        if(downloads.has(src)){imageData.set(id,await downloads.get(src)!);return;}
+        const download=(async()=>{
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 10000);
         try {
-          const response = await fetch(src,{signal:controller.signal});
+          const response = await fetch(src,{signal:AbortSignal.any([controller.signal,resourceAbort.signal])});
           if (!response.ok) throw new Error(`Remote image returned ${response.status}: ${src}`);
-          const bytes = Buffer.from(await response.arrayBuffer());
-          if (bytes.length > 20 * 1024 * 1024) throw new Error(`Remote image is larger than 20 MB: ${src}`);
-          imageData.set(id,`data:${response.headers.get('content-type') || 'image/png'};base64,${bytes.toString('base64')}`);
+          const chunks:Uint8Array[]=[];let size=0;const reader=response.body?.getReader();
+          if(!reader)throw new Error('Image response has no body.');
+          while(true){const result=await reader.read();if(result.done)break;size+=result.value.length;if(size>20*1024*1024){await reader.cancel();throw new Error('Image is larger than 20 MB.');}chunks.push(result.value);}
+          const bytes=Buffer.concat(chunks),data=`data:${response.headers.get('content-type') || 'image/png'};base64,${bytes.toString('base64')}`;
+          remoteImages.set(src,{data,expires:Date.now()+300000});while(remoteImages.size>4)remoteImages.delete(remoteImages.keys().next().value!);
+          return data;
         } finally { clearTimeout(timeout); }
+        })();downloads.set(src,download);imageData.set(id,await download);
       })());
       return `<img src="IMAGE-${id}" alt="${escape(token.content)}">`;
     }
-    images.push((async () => {
+    capture((async () => {
       if (/^[a-z][\w+.-]*:|^\/\/|^\\\\/i.test(src)) throw new Error(`Unsupported image source: ${src}`);
       const path = await realpath(resolve(dirname(fileURLToPath(owner)),decodeURIComponent(src)));
       const roots = vscode.workspace.workspaceFolders?.map(folder => folder.uri.fsPath) ?? [dirname(document.uri.fsPath)];
       const allowed = await Promise.all(roots.map(root => realpath(root)));
-      if (!allowed.some(root => path.toLowerCase().startsWith(root.toLowerCase()+'\\'))) throw new Error(`Image outside workspace: ${src}`);
+      if (!allowed.some(root => (()=>{const rel=relative(root,path);return rel===''||(!rel.startsWith('..')&&!isAbsolute(rel));})())) throw new Error(`Image outside workspace: ${src}`);
       const type = path.toLowerCase().endsWith('.svg') ? 'image/svg+xml' : path.toLowerCase().endsWith('.jpg') || path.toLowerCase().endsWith('.jpeg') ? 'image/jpeg' : 'image/png';
-      imageData.set(id,`data:${type};base64,${(await readFile(path)).toString('base64')}`);
+      const bytes=await readFile(path);if(bytes.length>20*1024*1024)throw new Error('Local image is larger than 20 MB.');
+      imageData.set(id,`data:${type};base64,${bytes.toString('base64')}`);
     })());
     return `<img src="IMAGE-${id}" alt="${escape(token.content)}">`;
   };
@@ -62,8 +83,11 @@ export async function exportPdf(document:CompositeDocument,extensionPath:string,
     if (index === 0 && isFrontmatter(segment.text)) return frontmatterHtml(segment.text);
     return `<section id="segment-${escape(segment.id)}">${md.render(segment.text,env)}</section>`;
   }).join('\n');
-  await Promise.all(images); for (const [id,data] of imageData) body=body.replace(`IMAGE-${id}`,data);
-  await vscode.window.withProgress({location:vscode.ProgressLocation.Notification,title:'Exporting PDF',cancellable:true},async (progress,token) => {
+  await Promise.all(images);
+  if(token.isCancellationRequested)throw new Error('Export cancelled.');
+  if(failures.length&&!options.allowMissingResources)throw new Error('PDF resource check failed; no PDF was written. Fix the resources, or explicitly enable placeholders:\n'+failures.join('\n'));
+  for (const [id,data] of imageData) body=body.replace(`IMAGE-${id}`,data);
+  const renderPdf=async()=>{
     const browser = await chromium.launch({executablePath:join(extensionPath,'engine','chrome-headless-shell.exe'),headless:true});
     const subscription = token.onCancellationRequested(() => { void browser.close(); });
     try {
@@ -73,7 +97,7 @@ export async function exportPdf(document:CompositeDocument,extensionPath:string,
       progress.report({message:'Rendering diagrams and images…'});
       await page.addScriptTag({path:join(extensionPath,'dist','mermaid-runtime.js')});
       await page.addScriptTag({path:join(extensionPath,'dist','export-renderer.js')});
-      await page.evaluate(async () => { await (window as any).renderExport(); await window.document.fonts.ready; await Promise.all([...window.document.images].map(image => image.decode())); });
+      await page.evaluate(async allowMissing => { await (window as any).renderExport(allowMissing); await window.document.fonts.ready; await Promise.all([...window.document.images].map(image => image.decode())); },!!options.allowMissingResources);
       if (token.isCancellationRequested) throw new Error('Export cancelled.');
       progress.report({message:'Writing PDF…'});
       const bytes = await page.pdf({format:options.format,landscape:options.landscape,printBackground:true,margin:{top:options.margin+'mm',bottom:options.margin+'mm',left:options.margin+'mm',right:options.margin+'mm'},displayHeaderFooter:!!options.header || !!options.footer || options.pageNumbers,headerTemplate:`<div style="font-size:9px;width:100%;text-align:center">${escape(options.header)}</div>`,footerTemplate:`<div style="font-size:9px;width:100%;text-align:center">${escape(options.footer)} ${options.pageNumbers?'<span class="pageNumber"></span> / <span class="totalPages"></span>':''}</div>`});
@@ -84,6 +108,9 @@ export async function exportPdf(document:CompositeDocument,extensionPath:string,
       const action = options.preview ? 'Open PDF' : await vscode.window.showInformationMessage('PDF exported successfully.','Open PDF');
       if (action) await vscode.commands.executeCommand('vscode.open',destination);
     } finally { subscription.dispose(); await browser.close(); }
+  };
+  await renderPdf();return destination;
+  }catch(error){if(token.isCancellationRequested){void vscode.window.showInformationMessage('PDF export cancelled.');return;}throw error;}
+  finally{resourceAbort.abort();resourceSubscription.dispose();}
   });
-  return destination;
 }

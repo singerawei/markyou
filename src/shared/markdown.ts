@@ -43,7 +43,7 @@ export function sanitizeHtmlFragment(html: string) {
 }
 
 export function footnoteAnchor(id: string) {
-  return id.replace(/[^A-Za-z0-9_-]/g, '_');
+  return id.replace(/[^\p{L}\p{N}_-]/gu, '_');
 }
 
 /**

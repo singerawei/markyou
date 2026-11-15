@@ -1,24 +1,29 @@
+import {installLocalization} from '../shared/localization';
 import {DocumentNavigation} from './navigation';
 import {popover} from './popover';
 import {shortcutAria, shortcutLabel, modifierLabel, type ShortcutId} from './shortcuts';
 import {codeNodeView,codeHighlightPlugin,indentCode,newlineCode} from './codeEditing';
 import { iconButton,enhance,pdfDialog,setPdfDefaults,configureEnhancements } from './enhancements';
 import { setDiagramRenderer, codeLanguages } from './diagrams';
-import { EditorState, TextSelection } from 'prosemirror-state';
+import { EditorState, TextSelection,NodeSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { baseKeymap, toggleMark, setBlockType, wrapIn, chainCommands, exitCode, lift } from 'prosemirror-commands';
 import { keymap } from 'prosemirror-keymap';
 import { splitListItem, liftListItem, sinkListItem, wrapInList } from 'prosemirror-schema-list';
 import { inputRules, textblockTypeInputRule, wrappingInputRule, InputRule } from 'prosemirror-inputrules';
-import { tableEditing, goToNextCell,isInTable,addRowAfter,addColumnAfter,deleteRow,deleteColumn,deleteTable,toggleHeaderRow } from 'prosemirror-tables';
-import {createTableToolbar,pasteTSV,tableAsTSV} from './tableToolbar';
+import { tableEditing, CellSelection,goToNextCell,isInTable,addRowAfter,addColumnAfter,deleteRow,deleteColumn,deleteTable } from 'prosemirror-tables';
+import {createTableToolbar,pasteTSV,tableAsTSV,htmlTableMatrix} from './tableToolbar';
 import {applyFindHighlights,clearFindHighlights} from './search';
 import { parser, schema, serializer, markdownTokenizer } from './schema';
+import type {Node as MarkdownNode} from 'prosemirror-model';
 import { preserveEdges } from '../document/serializer';
 import { collectAbbreviations, collectReferences, sanitizeHtmlFragment, type MarkdownEnv } from '../shared/markdown';
 import { tocFromSegments } from '../shared/headings';
 import { frontmatterHtml, isFrontmatter } from '../shared/frontmatter';
 import type { Segment } from '../shared/types';
+import {textMatches,type TextMatch} from '../shared/replacements';
+import {visibleText} from '../shared/visibleText';
+import {configureDrafts,trackDraft,pendingDrafts,restoredDrafts,discardDraft} from './drafts';
 
 declare function acquireVsCodeApi(): {postMessage(message:unknown):void;getState():any;setState(state:unknown):void};
 const vscode = acquireVsCodeApi();
@@ -34,14 +39,15 @@ const notice = document.querySelector<HTMLElement>('#notice')!;
 let dirtyFiles: string[] = [];
 let conflicts: {uri:string;deleted?:boolean}[] = [];
 let lastConflictSignature = '';
-let activeSearch: {query:string;matchCase:boolean;mode:string;currentSegmentId?:string} | undefined;
+let activeSearch: {query:string;matchCase:boolean;mode:string;sourceMode?:boolean;currentSegmentId?:string;currentRange?:TextMatch} | undefined;
 let productVersion = '';
 let productName = 'MarkYou';
+let rootDocumentUri='';let rootDocumentVersion:number|undefined;
 const display: {textSize:number;readingWidth:'narrow'|'standard'|'wide';readOnly:boolean;focusMode:boolean} = {textSize:16,readingWidth:'standard',readOnly:false,focusMode:false};
 let segments = new Map<string,Segment>();
 let ownership = new Map<string,Segment[]>();
 const ownerKey = (segment:Segment) => `${segment.sourceUri}::${segment.pieceId}`;
-let active: {segment:Segment;view?:EditorView;area?:HTMLTextAreaElement;element:HTMLElement;htmlEditor?:HTMLElement;htmlBaseline?:string;tableToolbar?:{update:()=>void;destroy:()=>void}} | undefined;
+let active: {segment:Segment;region?:Segment[];view?:EditorView;area?:HTMLTextAreaElement;element:HTMLElement;htmlEditor?:HTMLElement;htmlBaseline?:string;tableToolbar?:{update:()=>void;destroy:()=>void}} | undefined;
 let readOnly = false; let userReadOnly=false; let documentTitle="";
 let historyState={undo:0,redo:0};
 let lastDirtyCount:number|undefined;
@@ -114,14 +120,37 @@ function toast(text: string, kind: ToastKind = 'info', options: {retry?: () => v
 }
 function error(text:string, retry?: () => void) { toast(text, 'error', {retry}); }
 const requests=new Map<string,{resolve:(result:any)=>void;reject:(error:Error)=>void}>();
-function request(type:string,payload:Record<string,unknown>={}){const id=origin+'-'+Math.random().toString(36).slice(2);return new Promise<any>((resolve,reject)=>{requests.set(id,{resolve,reject});send({type,id,...payload});});}
+function request(type:string,payload:Record<string,unknown>={}){const id=origin+'-'+Math.random().toString(36).slice(2);return new Promise<any>((resolve,reject)=>{const timer=type==='document-markdown'?setTimeout(()=>{requests.delete(id);reject(new Error('Preparing complete Markdown timed out. Retry copying.'));},15000):undefined;requests.set(id,{resolve:value=>{if(timer)clearTimeout(timer);resolve(value);},reject:reason=>{if(timer)clearTimeout(timer);reject(reason);}});send({type,id,...payload});});}
 function copyText(text:string){void request('copy',{text}).then(()=>toast('Copied to clipboard.','success'),reason=>toast(`Copy failed: ${String(reason)}`,'error'));}
+const draftButton=document.createElement('button');draftButton.type='button';draftButton.hidden=true;statusbar.append(draftButton);
+configureDrafts(draft=>{
+  send({type:'draft',draft});
+  vscode.setState({...vscode.getState(),drafts:pendingDrafts()});
+},()=>{draftButton.hidden=!pendingDrafts().length;draftButton.textContent=`Unapplied drafts (${pendingDrafts().length})`;});
+restoredDrafts(vscode.getState()?.drafts??[]);
+draftButton.onclick=event=>{event.stopPropagation();
+  const draft=pendingDrafts()[0];if(!draft)return;
+  const segment=segmentOrder.find(segment=>segment.sourceUri===draft.uri&&segment.pieceId===draft.pieceId);
+  if(!segment){information('Unapplied draft',`${fileLabel(draft.uri)}\n\n${draft.value}`);return;}
+  const chunk=segmentChunks.get(segment.id);if(chunk)mountChunk(chunk);
+  const element=elements.get(segment.id);if(element)openBlockEditor(element,segment,draft);
+};
+window.addEventListener('save-document',()=>send({type:'save'}));
+window.addEventListener('pdf-preflight',()=>{
+  const issues=segmentOrder.flatMap(segment=>segment.error?[`${segment.sourceFile}: ${segment.error}`]:segment.text.split('\n').some(line=>line.length>180)?[`${segment.sourceFile}: long lines may be clipped; check landscape or smaller font.`]:[]);
+  if(pendingDrafts().length)issues.push(`${pendingDrafts().length} unapplied drafts are excluded. Apply them before export if needed.`);
+  information('PDF preflight',issues.length?issues.join('\n'):'No Include errors or very long lines detected. Images and diagrams are validated during export. Applied unsaved edits are included.');
+});
+window.addEventListener('table-paste-limit',event=>{const size=(event as CustomEvent).detail;information('Large table paste',`${size.rows} rows (including header) × ${size.columns} columns. Inline tables support 200 data rows and 5000 cells. Nothing was pasted. Use Text Editor to paste the complete data, or paste a smaller range.`);});
+window.addEventListener('table-paste-summary',event=>{const result=(event as CustomEvent).detail;toast(`${result.rows} × ${result.columns} pasted · ${result.overwritten} cells overwritten. Undo restores the whole paste.`,'info');});
 configureEnhancements({canEdit:()=>!readOnly,copy:text=>request('copy',{text}),exportDiagram:(code,dark,format)=>request('export-diagram',{code,dark,format}),notify:(text,kind='info',retry)=>toast(text,kind,{retry})});
 function fileLabel(uri:string){return uri.split(/[\\/]/).pop()??uri;}
 function refreshSearchHighlights(){
   if(!activeSearch)return;
   const element=activeSearch.currentSegmentId?elements.get(activeSearch.currentSegmentId)??null:null;
-  applyFindHighlights(root,activeSearch.query,element,activeSearch.matchCase);
+  const current=activeSearch.currentSegmentId?segments.get(activeSearch.currentSegmentId):undefined;
+  const ordinal=current&&activeSearch.currentRange?textMatches(activeSearch.sourceMode?current.text:visibleText(current.text),activeSearch.query,activeSearch.matchCase).findIndex(match=>match.start===activeSearch?.currentRange?.start):0;
+  applyFindHighlights(root,activeSearch.query,element,activeSearch.matchCase,ordinal);
 }
 function sourceFeedback(){renderStatus();}
 function renderStatus(){
@@ -153,10 +182,12 @@ function render(element:HTMLElement,segment:Segment) {
   if (active?.element === element) return;
   element.replaceChildren();
   element.className = 'segment';
+  element.hidden=segment.text===''&&segmentOrder.some(item=>item.sourceUri===segment.sourceUri&&!!item.text.trim());
   delete element.dataset.large;
   const fenced=/^\s*(?:`{3,}|~{3,})/.test(segment.text);
   const tableLines=/^\s*\|/.test(segment.text)?segment.text.trimEnd().split(/\r?\n/):undefined;
-  const largeTable=!!tableLines&&tableLines.length>200;
+  const tableDataRows=Math.max(0,(tableLines?.length??0)-2);
+  const largeTable=!!tableLines&&(tableDataRows>200||(tableLines.length-1)*Math.max(1,(tableLines[0].match(/(?<!\\)\|/g)?.length??2)-1)>5000);
   const large=largeTable||segment.text.length>(fenced?128*1024:16*1024);
   element.dataset.large=String(large);
   if(largeTable){
@@ -164,11 +195,12 @@ function render(element:HTMLElement,segment:Segment) {
     resourceBase=(segment as any).resourceBase??'';
     const columns=Math.max(1,(tableLines![0].match(/\|/g)?.length??2)-1);
     const info=document.createElement('p');info.className='large-block-notice';
-    info.textContent=`Large table: ${Math.max(0,tableLines!.length-2)} data rows × ${columns} columns. The preview is read-only to keep typing responsive. Every row is preserved.`;
+    info.textContent=`Large table: ${Math.max(0,tableLines!.length-2)} data rows × ${columns} columns. Read-only preview shows the first 50 data rows. All rows remain available below or in Text Editor. The 200-row limit excludes the header.`;
     const preview=document.createElement('div');preview.className='large-table-preview';
     try{preview.innerHTML=renderer.render(tableLines!.slice(0,52).join('\n')+'\n',markdownEnv);wrapTables(preview);}catch{preview.textContent=tableLines!.slice(0,52).join('\n');}
     const open=document.createElement('button');open.type='button';open.textContent='Edit in Text Editor';open.onclick=event=>{event.stopPropagation();send({type:'reveal',uri:segment.sourceUri,pieceId:segment.pieceId});};
-    element.append(info,open,preview);element.dataset.rendered='true';return;
+    const all=document.createElement('details');const summary=document.createElement('summary');summary.textContent='Browse / search all rows';const search=document.createElement('input');search.type='search';search.setAttribute('aria-label','Search all table rows');const content=document.createElement('pre');let page=0;const paint=()=>{const rows=tableLines!.slice(2).filter(row=>!search.value||row.toLocaleLowerCase().includes(search.value.toLocaleLowerCase()));page=Math.min(page,Math.max(0,Math.ceil(rows.length/100)-1));content.textContent=`${rows.length} data rows ? ${page+1} / ${Math.max(1,Math.ceil(rows.length/100))}\n`+tableLines!.slice(0,2).concat(rows.slice(page*100,(page+1)*100)).join('\n');};const next=document.createElement('button');next.type='button';next.textContent='Next 100 rows';next.onclick=event=>{event.stopPropagation();page++;paint();};const prev=document.createElement('button');prev.type='button';prev.textContent='Previous 100 rows';prev.onclick=event=>{event.stopPropagation();page=Math.max(0,page-1);paint();};all.onclick=event=>event.stopPropagation();search.oninput=()=>{page=0;paint();};all.addEventListener('toggle',()=>{if(all.open)paint();});all.append(summary,search,prev,next,content);
+    element.append(info,open,preview,all);element.dataset.rendered='true';return;
   }
   if(large){const label=document.createElement('p');label.className='large-block-notice';label.textContent='Large block: inline editing is limited to 128 KiB code or 16 KiB prose. Use Text Editor for responsive editing. The complete content is preserved.';const preview=document.createElement('pre');preview.textContent=segment.text.slice(0,4000)+'\n…';const open=document.createElement('button');open.textContent='Edit in Text Editor';open.onclick=event=>{event.stopPropagation();send({type:'reveal',uri:segment.sourceUri,pieceId:segment.pieceId});};element.append(label,open,preview);element.dataset.rendered='true';return;}
   if (segment.error) {
@@ -290,7 +322,7 @@ const observer = new IntersectionObserver(entries => {
   }
 },{rootMargin:'1000px'});
 
-function update(segment:Segment,text:string) {
+function update(segment:Segment,text:string, separateHistory = false) {
   if(readOnly)return;
   if (text === segment.text) return;
   const before = segment.text;
@@ -300,7 +332,7 @@ function update(segment:Segment,text:string) {
     if (element && element !== active?.element) render(element,current);
   }
   if (needsContextRefresh(before, text)) contextPending = true;
-  send({type:'edit',uri:segment.sourceUri,pieceId:segment.pieceId,before,text,origin});
+  send({type:'edit',uri:segment.sourceUri,pieceId:segment.pieceId,before,text,origin,separateHistory});
 }
 let contextPending = false;
 function needsContextRefresh(...values: string[]) {
@@ -327,6 +359,7 @@ function deactivate() {
   active.view?.destroy(); active = undefined;
   previous.element.classList.remove('editing');
   render(previous.element,previous.segment);
+  if(previous.region)for(const segment of previous.region.slice(1)){const element=elements.get(segment.id);if(element)render(element,segment);}
   syncToolbar();
   if (contextPending) {
     contextPending = false;
@@ -357,10 +390,13 @@ function activateHtmlEditor(element:HTMLElement,segment:Segment) {
   element.replaceChildren(bar,editor);
   element.classList.add('editing','html-editing');
   active = {segment,element,htmlEditor:editor,htmlBaseline:sanitizeHtmlFragment(editor.innerHTML).trim()};
+  const draft=trackDraft(segment,'html');
+  editor.addEventListener('input',()=>draft.update(sanitizeHtmlFragment(editor.innerHTML).trim()));
   sourceFeedback();
   const finish = (save:boolean) => {
     if (active?.element !== element || active.htmlEditor !== editor) return;
     if (!save) active.htmlBaseline = sanitizeHtmlFragment(editor.innerHTML).trim();
+    draft.clear();
     deactivate();
     element.focus({preventScroll:true});
   };
@@ -369,6 +405,8 @@ function activateHtmlEditor(element:HTMLElement,segment:Segment) {
   cancel.onclick = () => finish(false);
   cancel.onmousedown = event => event.preventDefault();
   editor.addEventListener('keydown',event => {
+    if(event.isComposing)return;
+    if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();event.stopPropagation();finish(true);send({type:'save'});return;}
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); finish(false); }
     else if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); finish(true); }
   });
@@ -385,7 +423,7 @@ function blockEditorTitle(segment:Segment) {
   if (/<[a-z]/i.test(segment.text)) return 'Edit HTML block';
   return 'Edit Markdown block';
 }
-function openBlockEditor(element:HTMLElement,segment:Segment) {
+function openBlockEditor(element:HTMLElement,segment:Segment,recovered?:import('../shared/draft').UnappliedDraft) {
   deactivate();
   const dialog = document.createElement('dialog');
   dialog.className = 'block-editor-dialog';
@@ -397,13 +435,17 @@ function openBlockEditor(element:HTMLElement,segment:Segment) {
   hint.className = 'block-editor-hint';
   hint.textContent = 'The rendered block stays in the document. Edit the source here with a live preview, then apply.';
   const grid = document.createElement('div'); grid.className = 'block-editor-grid';
-  const source = document.createElement('textarea'); source.className = 'block-editor-source'; source.value = segment.text; source.spellcheck = false; source.setAttribute('aria-label','Block source');
+  const baseline=recovered?.baseline??segment.text;
+  const draft=trackDraft({...segment,text:baseline},recovered?.kind??'markdown');
+  const source = document.createElement('textarea'); source.className = 'block-editor-source'; source.value = recovered?.value??segment.text; source.spellcheck = false; source.setAttribute('aria-label','Block source');
   const preview = document.createElement('div'); preview.className = 'block-editor-preview'; preview.setAttribute('aria-label','Live preview');
   grid.append(source,preview);
   const actions = document.createElement('div'); actions.className = 'dialog-row';
   const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = 'Cancel';
   const apply = document.createElement('button'); apply.type = 'button'; apply.textContent = 'Apply';
-  actions.append(apply,cancel);
+  const copy=document.createElement('button');copy.type='button';copy.textContent='Copy draft';copy.onclick=()=>copyText(source.value);
+  const compare=document.createElement('button');compare.type='button';compare.textContent='Compare source';compare.onclick=()=>information('Current source',segment.text);
+  actions.append(apply,cancel,copy,compare);
   dialog.append(title,hint,grid,actions);
   let timer: ReturnType<typeof setTimeout> | undefined;
   const paint = () => {
@@ -412,41 +454,90 @@ function openBlockEditor(element:HTMLElement,segment:Segment) {
       wrapTables(preview);
     } catch (reason) { preview.textContent = String(reason); }
   };
-  source.oninput = () => { clearTimeout(timer); timer = setTimeout(paint,120); };
+  source.oninput = () => {draft.update(source.value); clearTimeout(timer); timer = setTimeout(paint,120); };
   const close = (accepted:boolean) => {
+    if(accepted&&(readOnly||segment.text!==baseline)){error('Source changed or is read-only. Your draft is preserved. Copy it or compare with the current source.');return false;}
     clearTimeout(timer);
     const value = source.value;
     dialog.close();
     dialog.remove();
-    if (accepted && value !== segment.text) update(segment,value);
+    if (accepted && value !== segment.text) update(segment,value,true);
+    draft.clear();
+    if(recovered)discardDraft(recovered.key);
     element.focus({preventScroll:true});
+    return true;
   };
   apply.onclick = () => close(true);
   cancel.onclick = () => close(false);
   source.addEventListener('keydown',event => {
+    if(event.isComposing)return;
+    if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();event.stopPropagation();if(close(true))send({type:'save'});return;}
     if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); close(true); }
   });
   dialog.addEventListener('cancel',event => { event.preventDefault(); close(false); });
+  dialog.addEventListener('apply-draft-and-save',()=>{if(close(true))send({type:'save'});});
   document.body.append(dialog);
   paint();
   dialog.showModal();
   source.focus();
 }
 async function insertImageFiles(view:EditorView,files:File[],position?:number) {
+  const target=active;
+  if(!target||target.view!==view||readOnly)return;
+  const owner=target.segment.sourceUri;
+  let expected=view.state.doc;
   let insertAt=position;
   for(const file of files){
     try{
       const bytes=new Uint8Array(await file.arrayBuffer());
+      if(bytes.length>20*1024*1024)throw new Error('Image is larger than 20 MB.');
+      if(readOnly||active!==target||view.isDestroyed||view.state.doc!==expected)throw new Error('Image target changed. Select an insertion position and retry.');
       let binary='';for(let offset=0;offset<bytes.length;offset+=0x8000)binary+=String.fromCharCode(...bytes.subarray(offset,offset+0x8000));
-      const path=String(await request('save-image',{uri:active?.segment.sourceUri,name:file.name||'pasted.png',mime:file.type||'image/png',data:btoa(binary)}));
+      const path=String(await request('save-image',{uri:owner,sourceVersion:target.segment.sourceVersion,name:file.name||'pasted.png',mime:file.type||'image/png',data:btoa(binary)}));
+      if(readOnly||active!==target||view.isDestroyed||view.state.doc!==expected)throw new Error(`Image target changed. The resource was saved at ${path}; choose a position to insert it.`);
       const node=schema.nodes.image.create({src:path,alt:(file.name||'image').replace(/\.[^.]+$/,'')});
       const transaction=view.state.tr;
       if(insertAt!==undefined)transaction.insert(insertAt,node);else transaction.replaceSelectionWith(node);
-      view.dispatch(transaction.scrollIntoView());
+      view.dispatch(transaction.setMeta('separateHistory',true).scrollIntoView());
+      expected=view.state.doc;
       if(insertAt!==undefined)insertAt+=node.nodeSize;
     }catch(reason){error(String(reason));}
   }
-  view.focus();
+  if(!view.isDestroyed&&active===target)view.focus();
+}
+async function insertImagesWithoutActive(files:File[]){
+  if(readOnly)return;
+  const source=segmentOrder[0];if(!source)return;
+  const uri=rootDocumentUri||source.sourceUri,sourceVersion=rootDocumentVersion??source.sourceVersion,paths:string[]=[];
+  toast('Preparing images for the root document…','info');
+  try{
+    for(const file of files){
+      const bytes=new Uint8Array(await file.arrayBuffer());if(bytes.length>20*1024*1024)throw new Error('Image is larger than 20 MB.');
+      let binary='';for(let offset=0;offset<bytes.length;offset+=0x8000)binary+=String.fromCharCode(...bytes.subarray(offset,offset+0x8000));
+      if(readOnly)throw new Error('The document is now read-only.');
+      const path=String(await request('save-image',{uri,sourceVersion,data:btoa(binary),mime:file.type,name:file.name||'pasted.png'}));paths.push(path);
+    }
+    if(readOnly)throw new Error('The document is now read-only.');
+    await request('insert-block',{uri,sourceVersion,position:'end',text:paths.map(path=>`![image](<${path}>)`).join('\n\n')});
+  }catch(reason){error(`${String(reason)}${paths.length?' Saved resources: '+paths.join(', ')+'. Select a position to insert them.':''}`);}
+}
+document.addEventListener('paste',event=>{
+  if(event.defaultPrevented||readOnly||active?.view||(event.target as HTMLElement).closest('dialog,input,textarea,[contenteditable=true]'))return;
+  const files=[...(event.clipboardData?.files??[])].filter(file=>file.type.startsWith('image/'));if(!files.length)return;
+  event.preventDefault();void insertImagesWithoutActive(files);
+});
+root.addEventListener('dragover',event=>{if(!readOnly&&!active?.view&&[...(event.dataTransfer?.items??[])].some(item=>item.kind==='file'))event.preventDefault();});
+root.addEventListener('drop',event=>{if(event.defaultPrevented||readOnly||active?.view)return;const files=[...(event.dataTransfer?.files??[])].filter(file=>file.type.startsWith('image/'));if(files.length){event.preventDefault();void insertImagesWithoutActive(files);}});
+function chooseTablePaste(view:EditorView,text:string,matrix?:string[][]){
+  const target=active,expected=view.state.doc;
+  const dialog=document.createElement('dialog');dialog.setAttribute('aria-labelledby','paste-table-title');
+  const title=document.createElement('h2');title.id='paste-table-title';title.textContent='Paste table data';dialog.append(title);
+  const close=()=>{dialog.close();dialog.remove();if(!view.isDestroyed)view.focus();};
+  for(const [label,convert]of [['Convert to table',true],['Paste text only',false]]as const){const button=document.createElement('button');button.type='button';button.textContent=label;button.onclick=()=>{
+    if(readOnly||active!==target||view.isDestroyed||view.state.doc!==expected){error('Paste target changed. Select the insertion point again.');close();return;}
+    if(convert)pasteTSV(view,text,matrix);else view.dispatch(view.state.tr.insertText(text).setMeta('paste',true));close();
+  };dialog.append(button);}
+  const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.onclick=close;dialog.append(cancel);dialog.addEventListener('cancel',event=>{event.preventDefault();close();});document.body.append(dialog);dialog.showModal();
 }
 async function editLink(){
   const view=active?.view;if(!view||readOnly)return;
@@ -468,6 +559,89 @@ async function editLink(){
   else view.dispatch(view.state.tr.addMark(from,to,schema.marks.link.create({href,title:null})));
   view.focus();
 }
+async function editImage(){
+  const target=active,view=target?.view;if(!view||!target)return;
+  const selection=view.state.selection;
+  const node=selection instanceof NodeSelection&&selection.node.type===schema.nodes.image?selection.node:undefined;
+  if(!node){toast('Select an image in the editable block first.','info');return;}
+  const before=view.state.doc;
+  const values=await ask('Image properties',[{name:'src',label:'Image address',value:String(node.attrs.src??'')},{name:'alt',label:'Alt text',value:String(node.attrs.alt??'')},{name:'title',label:'Title',value:String(node.attrs.title??'')}],'Apply');
+  if(!values||readOnly)return;
+  if(active!==target||view.state.doc!==before){error('Image target changed. Select it again.');return;}
+  if(/^(?:javascript|vbscript|data):/i.test(values.src.trim())){error('Enter a safe image path or HTTP URL.');return;}
+  view.dispatch(view.state.tr.setNodeMarkup(selection.from,undefined,{...node.attrs,src:values.src,alt:values.alt,title:values.title||null}).setMeta('separateHistory',true));view.focus();
+}
+function blockActions(segment:Segment|undefined){
+  if(!segment||readOnly)return;
+  const dialog=document.createElement('dialog');dialog.setAttribute('aria-labelledby','block-actions-title');
+  const heading=document.createElement('h2');heading.id='block-actions-title';heading.textContent='Block actions';
+  const source=document.createElement('p');source.textContent=segment.sourceFile;
+  dialog.append(heading,source);
+  let restoreFocus=true;
+  const continuous=document.createElement('button');continuous.type='button';continuous.textContent='Edit continuous section';continuous.onclick=()=>{restoreFocus=false;dialog.close();const element=elements.get(segment.id);if(element&&active?.segment!==segment)activate(element,segment);editContinuousSection();};dialog.append(continuous);
+  const image=document.createElement('button');image.type='button';image.textContent='Image properties…';image.onclick=()=>{restoreFocus=false;dialog.close();void editImage();};image.disabled=!active?.view;dialog.append(image);
+  for(const [label,action]of [['Duplicate block','duplicate'],['Delete block','delete'],['Move block up','up'],['Move block down','down']]){
+    const button=document.createElement('button');button.type='button';button.textContent=label;
+    button.onclick=()=>{deactivate();void request('block-operation',{uri:segment.sourceUri,pieceId:segment.pieceId,sourceVersion:segment.sourceVersion,action}).then(()=>dialog.close(),reason=>error(String(reason)));};dialog.append(button);
+  }
+  const close=document.createElement('button');close.type='button';close.textContent='Cancel';close.onclick=()=>dialog.close();dialog.append(close);
+  dialog.addEventListener('close',()=>{dialog.remove();if(restoreFocus)elements.get(segment.id)?.focus();});document.body.append(dialog);dialog.showModal();
+}
+/** A bounded same-source writing surface keeps native ProseMirror selections. */
+function editContinuousSection(){
+  const current=active?.segment;if(!current||readOnly)return;
+  const center=segmentIndices.get(current.id)??0;
+  let start=center,end=center+1,total=current.text.length;
+  const allowed=(segment:Segment|undefined)=>!!segment&&segment.editable&&!segment.error&&segment.sourceUri===current.sourceUri&&segment.includeInstanceId===current.includeInstanceId&&segment.text.length<16000;
+  while(start>0&&end-start<32&&allowed(segmentOrder[start-1])&&total+segmentOrder[start-1].text.length<32000){start--;total+=segmentOrder[start].text.length;}
+  while(end<segmentOrder.length&&end-start<32&&allowed(segmentOrder[end])&&total+segmentOrder[end].text.length<32000){total+=segmentOrder[end].text.length;end++;}
+  const region=segmentOrder.slice(start,end);
+  if(region.length<2){toast('No adjacent editable blocks in the same source. Include boundaries remain separate.','info');return;}
+  const originals=region.map(segment=>segment.text),parsed=originals.map(raw=>parser.parse(raw));
+  const nodes=parsed.flatMap(doc=>[...doc.content.content]);
+  const originalDoc=schema.nodes.doc.create(null,nodes);
+  const first=region[0],chunk=segmentChunks.get(first.id);if(chunk)mountChunk(chunk);
+  deactivate();
+  const element=elements.get(first.id)!;element.replaceChildren();element.classList.add('editing','continuous-editing');
+  for(const segment of region.slice(1)){const item=elements.get(segment.id);if(item)item.hidden=true;}
+  active={segment:first,region,element};
+  const compile=(doc:MarkdownNode)=>{
+    const next=[...doc.content.content];let prefix=0,suffix=0;
+    while(prefix<nodes.length&&prefix<next.length&&nodes[prefix].eq(next[prefix]))prefix++;
+    while(suffix<nodes.length-prefix&&suffix<next.length-prefix&&nodes[nodes.length-1-suffix].eq(next[next.length-1-suffix]))suffix++;
+    let left=0,leftNodes=0,right=parsed.length,rightNodes=0;
+    while(left<parsed.length&&leftNodes+parsed[left].childCount<=prefix){leftNodes+=parsed[left].childCount;left++;}
+    while(right>left&&rightNodes+parsed[right-1].childCount<=suffix){right--;rightNodes+=parsed[right].childCount;}
+    const middle=schema.nodes.doc.create(null,next.slice(leftNodes,next.length-rightNodes));
+    const changed=originals.slice(left,right).join('');
+    let value=preserveEdges(changed,serializer.serialize(middle));
+    if(left===right&&right<originals.length)value+='\n';
+    return originals.slice(0,left).join('')+value+originals.slice(right).join('');
+  };
+  const view=new EditorView(element,{state:EditorState.create({schema,doc:originalDoc,plugins:[
+    keymap({'Mod-b':toggleMark(schema.marks.strong),'Mod-i':toggleMark(schema.marks.em),'Shift-Enter':(state,dispatch)=>{dispatch?.(state.tr.replaceSelectionWith(schema.nodes.hard_break.create()));return true;},Enter:chainCommands(newlineCode,splitListItem(schema.nodes.list_item)),Tab:chainCommands(indentCode(),goToNextCell(1),sinkListItem(schema.nodes.list_item)),'Shift-Tab':chainCommands(indentCode(true),goToNextCell(-1),liftListItem(schema.nodes.list_item))}),keymap(baseKeymap),tableEditing(),codeHighlightPlugin()
+  ]}),
+    handleKeyDown(_view,event){if(event.isComposing)return false;if(event.key==='Escape'){deactivate();return true;}return false;},
+    dispatchTransaction(transaction){
+      if(readOnly&&transaction.docChanged)return;
+      view.updateState(view.state.apply(transaction));syncToolbar();active?.tableToolbar?.update();
+      if(!transaction.docChanged)return;
+      const text=compile(view.state.doc);
+      const changes=region.map((segment,index)=>({uri:segment.sourceUri,pieceId:segment.pieceId,before:segment.text,after:index===0?text:''}));
+      for(const change of changes)for(const owner of ownership.get(`${change.uri}::${change.pieceId}`)??[]){owner.text=change.after;navigator.index(owner);const item=elements.get(owner.id);if(item&&item!==element){item.hidden=!change.after;if(change.after)render(item,owner);}}
+      send({type:'edit-region',uri:first.sourceUri,changes,origin,separateHistory:!!transaction.getMeta('paste')||!!transaction.getMeta('separateHistory')});
+    },
+    handlePaste(view,event){const text=event.clipboardData?.getData('text/plain');if(text===undefined)return false;view.dispatch(view.state.tr.insertText(text).setMeta('paste',true));return true;},
+    nodeViews:{code_block:(node,view,getPos)=>codeNodeView(node,view,getPos,text=>request('copy',{text}))}
+  });
+  active.view=view;active.tableToolbar=createTableToolbar(view,{canEdit:()=>!readOnly,copy:copyText,notify:(text,kind)=>toast(text,kind)});view.focus();syncToolbar();
+  toast('Continuous section: select, cut or delete across these blocks. Includes and other sources remain separate. Esc returns to reading.','info');
+}
+root.addEventListener('contextmenu',event=>{
+  if(readOnly||(event.target as HTMLElement).closest('.ProseMirror,textarea,.html-visual-editor'))return;
+  const element=(event.target as HTMLElement).closest<HTMLElement>('.segment');if(!element)return;
+  event.preventDefault();blockActions(segments.get(element.dataset.id!));
+});
 function activate(element:HTMLElement,segment:Segment) {
   if (readOnly) { toast('This view is read-only. Choose Enable editing to make changes.', 'info'); return; }
   if (element.dataset.large==='true') return;
@@ -499,6 +673,7 @@ function activate(element:HTMLElement,segment:Segment) {
     ]});
     const view = new EditorView(element,{state,
       handleKeyDown(view,event){
+        if (event.isComposing || view.composing) return false;
         if(event.key==='Escape'&&!event.ctrlKey&&!event.metaKey&&!event.altKey){
           // Let overlays consume the first Escape; the second returns to the block.
           if(document.querySelector('#navigation:not([hidden]),.insert-menu:not([hidden]),dialog[open]'))return false;
@@ -528,16 +703,26 @@ function activate(element:HTMLElement,segment:Segment) {
       dispatchTransaction(transaction) {
         if(transaction.docChanged && readOnly)return;
         view.updateState(view.state.apply(transaction));
+        if(!transaction.docChanged&&transaction.selectionSet)send({type:'seal-history'});
         syncToolbar();
         active?.tableToolbar?.update();
-        if (transaction.docChanged) update(segment,preserveEdges(segment.text,serializer.serialize(view.state.doc)));
+        if (transaction.docChanged) update(segment,preserveEdges(segment.text,serializer.serialize(view.state.doc)), !!transaction.getMeta('paste') || !!transaction.getMeta('separateHistory'));
       },
       handlePaste(view,event){
+        if(readOnly)return true;
+        if(view.state.selection.$from.parent.type === schema.nodes.code_block)return false;
         const images=[...(event.clipboardData?.files??[])].filter(file=>file.type.startsWith('image/'));
         if(images.length){event.preventDefault();void insertImageFiles(view,images);return true;}
         const text=event.clipboardData?.getData('text/plain')??'';
-        if(text.includes('\t')&&pasteTSV(view,text))return true;
-        return false;
+        const matrix=htmlTableMatrix(event.clipboardData?.getData('text/html')??'');
+        if(isInTable(view.state) && (matrix || text.includes('\t') || text.includes('\n') || view.state.selection instanceof CellSelection)) {
+          return pasteTSV(view,text,matrix);
+        }
+        if(!isInTable(view.state)&&(matrix||text.includes('\t'))){chooseTablePaste(view,text,matrix);return true;}
+        if(!text)return false;
+        // Plain text remains literal, including Markdown punctuation.
+        view.dispatch(view.state.tr.insertText(text).setMeta('paste',true).scrollIntoView());
+        return true;
       },
       handleDrop(view,event){
         const images=[...(event.dataTransfer?.files??[])].filter(file=>file.type.startsWith('image/'));
@@ -549,8 +734,8 @@ function activate(element:HTMLElement,segment:Segment) {
       },
       handleDOMEvents:{
         copy(view,event){
-          if(!view.state.selection.empty||!isInTable(view.state))return false;
-          const tsv=tableAsTSV(view.state);
+          if(!(view.state.selection instanceof CellSelection)||!isInTable(view.state))return false;
+          const tsv=tableAsTSV(view.state,true);
           if(!tsv)return false;
           (event as ClipboardEvent).clipboardData?.setData('text/plain',tsv);
           event.preventDefault();
@@ -558,13 +743,15 @@ function activate(element:HTMLElement,segment:Segment) {
         },
       },
       clipboardTextSerializer(slice,view){
-        const tsv=tableAsTSV(view.state);
-        if(tsv&&view.state.selection.empty)return tsv;
+        const tsv=view.state.selection instanceof CellSelection?tableAsTSV(view.state,true):undefined;
+        if(tsv!==undefined)return tsv;
         return slice.content.textBetween(0,slice.content.size,'\n\n');
       },
-      nodeViews:{code_block:(node,view,getPos)=>codeNodeView(node,view,getPos),image(node) {
+      nodeViews:{code_block:(node,view,getPos)=>codeNodeView(node,view,getPos,text=>request('copy',{text})),image(node) {
         const image = document.createElement('img'); const src = String(node.attrs.src);
         image.alt = node.attrs.alt ?? '';
+        if (/^https?:\/\//i.test(src)) image.src = src;
+        if (node.attrs.title) image.title = String(node.attrs.title);
         if (!/^(?:[a-z][a-z\d+.-]*:|\/\/|\\\\)/i.test(src)) image.src = new URL(src,((segment as any).resourceBase ?? '') + '/').href;
         return {dom:image};
       }},
@@ -596,6 +783,7 @@ function scrollElementToToolbar(element: HTMLElement) {
   requestAnimationFrame(() => { align(); requestAnimationFrame(align); });
   setTimeout(align, 120);
 }
+let pendingAnchor='';
 function scrollToHash(hash: string) {
   let id = hash.replace(/^#/, '');
   try { id = decodeURIComponent(id); } catch { /* Keep the raw fragment. */ }
@@ -642,7 +830,7 @@ root.addEventListener('click',event => {
     }
     event.preventDefault();
     if (href.startsWith('#')) { scrollToHash(href); return; }
-    if (event.ctrlKey || event.metaKey || !segment?.editable) {
+    if (readOnly || event.ctrlKey || event.metaKey || !segment?.editable) {
       if (segment) send({type:'link',href,uri:segment.sourceUri});
       return;
     }
@@ -679,9 +867,10 @@ root.addEventListener('keydown',event => {
   if (event.key === 'Enter' && event.target instanceof HTMLElement && event.target.classList.contains('segment')) activate(event.target,segments.get(event.target.dataset.id!)!);
 });
 document.addEventListener('keydown',event=>{
+  if(event.isComposing)return;
   if(!(event.ctrlKey||event.metaKey)||event.altKey)return;
   const key=event.key.toLowerCase();const target=event.target as HTMLElement;const local=!!target.closest('input,textarea,select,dialog');
-  if(key==='s'){event.preventDefault();event.stopPropagation();if(active?.htmlEditor)deactivate();if(document.querySelector('dialog[open]'))return;if(event.shiftKey)saveAsCopy();else send({type:'save'});return;}
+  if(key==='s'){event.preventDefault();event.stopPropagation();if(event.shiftKey)saveAsCopy();else commandRegistry.save();return;}
   if(['z','y'].includes(key)){if(local){event.stopPropagation();return;}event.preventDefault();event.stopPropagation();if(!readOnly)send({type:key==='y'||event.shiftKey?'redo':'undo'});}
 },true);
 document.querySelector('header')?.remove(); document.querySelector('footer')?.remove();
@@ -731,7 +920,7 @@ function toolbarButton(label: string, run: () => void, shortcut?: ShortcutId, sh
 }
 function command(run: any) {
   if (readOnly || !active?.view) return false;
-  run(active.view.state, active.view.dispatch, active.view);
+  run(active.view.state, (transaction:import('prosemirror-state').Transaction)=>active?.view?.dispatch(transaction.setMeta('separateHistory',true)), active.view);
   active.view.focus();
   syncToolbar();
   return true;
@@ -1032,14 +1221,25 @@ async function insertMath(inline: boolean) {
   else insertMarkdownBlock(`$$\n${latex}\n$$`);
 }
 async function insertFootnote() {
-  const values = await formDialog('Insert footnote', [
-    {name: 'label', label: 'Label', value: String(Date.now()).slice(-4), required: true},
-    {name: 'body', label: 'Footnote text', kind: 'textarea', value: '', required: true},
+  const target=active,view=target?.view;
+  if(!target||!view||readOnly){toast('Choose the reference insertion point in a text block first.','info');return;}
+  const before=target.segment.text,expected=view.state.doc,selection=view.state.selection;
+  const existing=segmentOrder.filter(segment=>segment.sourceUri===target.segment.sourceUri).map(segment=>segment.text).join('');
+  let number=1;while(existing.includes(`[^${number}]`))number++;
+  const values=await formDialog('Insert footnote',[
+    {name:'label',label:'Label',value:String(number),required:true},
+    {name:'body',label:'Footnote text',kind:'textarea',value:'',required:true}
   ]);
-  if (!values || readOnly) return;
-  const label = values.label.replace(/[^A-Za-z0-9_-]/g, '') || '1';
-  insertInlineMarkdown(`[^${label}]`);
-  insertMarkdownBlock(`[^${label}]: ${values.body.replace(/\r?\n/g, ' ')}`, 'end');
+  if(!values||readOnly)return;
+  const label=values.label;
+  if(!label||/[\s[\]:]/u.test(label)){error('Use a label without whitespace, brackets or colons. Chinese labels are supported.');return;}
+  if(active!==target||view.state.doc!==expected){error('The insertion point changed. Select it again.');return;}
+  const marker='MARKYOUFOOTNOTE'+crypto.randomUUID().replace(/-/g,'');
+  const draft=view.state.tr.setSelection(selection).replaceSelectionWith(schema.text(marker));
+  const text=preserveEdges(before,serializer.serialize(draft.doc).replace(marker,`[^${label}]`));
+  deactivate();
+  try{await request('insert-footnote',{uri:target.segment.sourceUri,pieceId:target.segment.pieceId,sourceVersion:target.segment.sourceVersion,before,text,label,body:values.body});}
+  catch(reason){error(String(reason));}
 }
 async function insertCallout() {
   const values = await formDialog('Insert callout', [
@@ -1094,7 +1294,7 @@ async function insertFrontmatter() {
     {name: 'yaml', label: 'YAML', kind: 'textarea', value: 'title: \ntags: []', required: true},
   ]);
   if (!values || readOnly) return;
-  insertMarkdownBlock(`---\n${values.yaml.trim()}\n---`, 'start');
+  deactivate();void request('insert-block',{position:'start',text:`---\n${values.yaml.trim()}\n---`}).catch(reason=>error(String(reason)));
 }
 
 addGroup('Text');
@@ -1162,7 +1362,6 @@ const contextual: [string, any, 'table' | 'list'][] = [
   ['Add table column', addColumnAfter, 'table'],
   ['Delete table row', deleteRow, 'table'],
   ['Delete table column', deleteColumn, 'table'],
-  ['Toggle table header', toggleHeaderRow, 'table'],
   ['Delete table', deleteTable, 'table'],
 ];
 for (const [label, action, context] of contextual) addInsert(label, () => command(action), {context, check: action, requiresView: true});
@@ -1194,10 +1393,12 @@ popover(insertButton, insertMenu, {
 
 const jumpAlignTimers: ReturnType<typeof setTimeout>[] = [];
 let jumpAlignScrolling = false;
+let jumpAlignedScrollY=0;
 function cancelJumpAligns() {
   for (const timer of jumpAlignTimers.splice(0)) clearTimeout(timer);
 }
-window.addEventListener('scroll', () => { if (!jumpAlignScrolling) cancelJumpAligns(); }, {passive:true});
+window.addEventListener('scroll', () => { if (!jumpAlignScrolling&&Math.abs(window.scrollY-jumpAlignedScrollY)>80) cancelJumpAligns(); }, {passive:true});
+for(const event of ['wheel','touchstart','pointerdown'])window.addEventListener(event,cancelJumpAligns,{passive:true});
 function jump(segment: Segment, query?: string, alignTop = true) {
   const chunk = segmentChunks.get(segment.id);
   if (!chunk) return;
@@ -1205,6 +1406,7 @@ function jump(segment: Segment, query?: string, alignTop = true) {
   const element = elements.get(segment.id);
   if (!element) return;
   cancelJumpAligns();
+  jumpAlignedScrollY=window.scrollY;
   const align = () => {
     const target = element.querySelector<HTMLElement>('h1,h2,h3,h4,h5,h6') ?? element;
     if (alignTop) {
@@ -1212,6 +1414,7 @@ function jump(segment: Segment, query?: string, alignTop = true) {
       if (Math.abs(delta) > 1) {
         jumpAlignScrolling = true;
         window.scrollBy(0, delta);
+        jumpAlignedScrollY=window.scrollY;
         setTimeout(() => { jumpAlignScrolling = false; }, 50);
       }
     } else target.scrollIntoView({block: 'center'});
@@ -1220,7 +1423,7 @@ function jump(segment: Segment, query?: string, alignTop = true) {
   requestAnimationFrame(() => { align(); requestAnimationFrame(align); });
   // Content-visibility and lazy chunk mounting can settle after the first two
   // frames. Re-align briefly; any user scroll cancels the pending corrections.
-  for (const delay of [80, 160, 260, 380, 520, 680]) jumpAlignTimers.push(setTimeout(align, delay));
+  for (const delay of [80, 160, 260, 380, 520, 680,720]) jumpAlignTimers.push(setTimeout(align, delay));
   element.focus({preventScroll: true});
   root.querySelector('.search-hit')?.classList.remove('search-hit');
   element.classList.add('search-hit');
@@ -1248,12 +1451,24 @@ const navigator = new DocumentNavigation({
       if (chunk) mountChunk(chunk);
     }
     const element = state.currentSegmentId ? elements.get(state.currentSegmentId) ?? null : null;
-    applyFindHighlights(root, state.query, element, state.matchCase);
+    const ordinal=current&&state.currentRange?textMatches(state.sourceMode?current.text:visibleText(current.text),state.query,state.matchCase).findIndex(match=>match.start===state.currentRange?.start):0;
+    applyFindHighlights(root, state.query, element, state.matchCase,ordinal);
   },
   onReplace: (query, replacement, all, matchCase, current, sourceMode) => {
     if (readOnly) { toast('This view is read-only.', 'info'); return; }
     if (!query.trim()) { toast('Type text to find before replacing.', 'info'); return; }
-    void request('replace', {query, replacement, all, matchCase, sourceMode, uri: current?.sourceUri, pieceId: current?.pieceId}).then((result: any) => {
+    const payload={query,replacement,all,matchCase,sourceMode,uri:current?.sourceUri,pieceId:current?.pieceId,sourceVersion:current?.sourceVersion,range:current?.range};
+    void (async()=>{
+      if(!all)return request('replace',payload);
+      const preview=await request('preview-replace',payload);
+      if(!preview.count)return {count:0};
+      if(preview.files.length>1){
+        const accepted=await ask('Review replacements',[{name:'confirm',label:`${preview.count} matches in ${preview.files.length} unique files:\n${preview.files.map((uri:string)=>fileLabel(uri)).join('\n')}\nType REPLACE to confirm.`,value:''}],'Replace all');
+        if(accepted?.confirm!=='REPLACE')return {cancelled:true};
+      }
+      return request('replace',{...payload,plan:preview.plan});
+    })().then((result: any) => {
+      if(result.cancelled)return;
       if (!result.count && result.visibleOnly) toast('Matches span Markdown syntax. Enable Search source and replace the exact source text.', 'info');
       else if (!result.count && result.skipped) toast(`${result.skipped} match${result.skipped === 1 ? '' : 'es'} sit inside Markdown syntax. Enable Search source to replace them.`, 'info');
       else if (result.skipped) toast(`${result.count} replaced · ${result.skipped} hidden match${result.skipped === 1 ? '' : 'es'} skipped.`, 'success');
@@ -1339,10 +1554,12 @@ moreItem('Copy document as Markdown', () => copyDocument());
 const readOnlyItem = moreItem('Read-only preview', () => setMode(!userReadOnly), {key: 'readOnly'});
 moreItem('Save as copy…', () => saveAsCopy());
 moreItem('Edit link…', () => { void editLink(); }, {key: 'editLink', editable: true});
+moreItem('Block actions',()=>blockActions(active?.segment),{editable:true});
 moreItem('Reveal source', () => {
   if (active) send({type: 'reveal', uri: active.segment.sourceUri, pieceId: active.segment.pieceId});
 }, {key: 'reveal', editable: true});
 moreItem('Help', () => showHelp(), {shortcut: 'help'});
+moreItem('Export complete Markdown…',()=>{void request('export-markdown').then(done=>toast(done?'Complete Markdown exported.':'Export cancelled.',done?'success':'info'),reason=>error(String(reason)));});
 moreItem('About', () => information(productName, `${productVersion || '1.0.0'} · Local-first Markdown with editable includes.`));
 moreItem('Hide toolbar', () => setToolbarHidden(true), {shortcut: 'toggleToolbar'});
 popover(moreButton, more, {
@@ -1372,9 +1589,10 @@ async function manageIncludes(){
   const source=document.createElement('select');source.setAttribute('aria-label','Include source file');
   const openSource=document.createElement('button');openSource.type='button';openSource.textContent='Open source';openSource.onclick=()=>{if(source.value)send({type:'open-source',uri:source.value});};
   const rows=document.createElement('div');rows.className='include-rows';
+  const position=document.createElement('select');position.setAttribute('aria-label','New Include position');
   const path=document.createElement('input');path.placeholder='./chapter.md';path.setAttribute('aria-label','Include path');
   const create=document.createElement('input');create.type='checkbox';create.id='include-create';
-  const createLabel=document.createElement('label');createLabel.className='inline-check';createLabel.append(create,document.createTextNode('Create the file if it does not exist'));
+  const createLabel=document.createElement('label');createLabel.className='inline-check';createLabel.append(create,document.createTextNode('Create immediately if missing; undo removes the reference, not the file'));
   const add=document.createElement('button');add.textContent='Add include';add.type='button';
   const close=document.createElement('button');close.textContent='Close';close.type='button';close.onclick=()=>dialog.close();
   const actions=document.createElement('div');actions.className='dialog-row';actions.append(add,close);
@@ -1388,7 +1606,7 @@ async function manageIncludes(){
       option.value=item.uri;
       let label=fileLabel(item.uri);
       try{label=decodeURIComponent(new URL(item.uri).pathname).split('/').filter(Boolean).slice(-2).join('/');}catch{/* Keep the basename. */}
-      option.textContent=label;option.title=item.uri;source.append(option);
+      option.textContent=`${'  '.repeat(item.depth??0)}${label}${item.repeated?' · repeated':''}${item.dirty?' · unsaved':''}${item.conflict?' · conflict':''}`;option.title=item.uri;source.append(option);
     }
     source.value=sources.some(item=>item.uri===selected)?selected:(active?.segment.sourceUri??source.options[0]?.value);
     paint();
@@ -1396,15 +1614,22 @@ async function manageIncludes(){
   const paint=()=>{
     rows.replaceChildren();
     const imports=sources.find(item=>item.uri===source.value)?.imports??[];
+    position.replaceChildren();const end=document.createElement('option');end.value='end';end.textContent='At end of selected source';position.append(end);
+    for(const item of imports)for(const side of ['before','after']){const option=document.createElement('option');option.value=side+':'+item.id;option.textContent=`${side} ${item.path}`;position.append(option);}
     if(!imports.length){const empty=document.createElement('p');empty.className='dialog-hint';empty.textContent='No includes yet. Add a relative .md path below.';rows.append(empty);}
     for(const item of imports){
       const row=document.createElement('div');row.className='include-row';
-      const label=document.createElement('span');label.textContent=item.path;label.title=item.path;
+      const label=document.createElement('span');label.textContent=item.path+(item.repeated?' · repeated':'')+(item.error?' · '+item.error:'');label.title=item.path;
       const open=document.createElement('button');open.type='button';open.textContent='Open';
       open.onclick=()=>send({type:'open-include',uri:source.value,path:item.path});
       const remove=document.createElement('button');remove.type='button';remove.textContent='Remove';remove.disabled=readOnly;
-      remove.onclick=()=>{if(!readOnly)void request('include-edit',{action:'remove',uri:source.value,pieceId:item.id}).then(refresh,reason=>error(String(reason)));};
-      row.append(label,open,remove);rows.append(row);
+      const version=sources.find(entry=>entry.uri===source.value)?.version;
+      remove.title='Remove reference only; the source file remains on disk';
+      remove.onclick=()=>{if(!readOnly)void request('include-edit',{action:'remove',uri:source.value,pieceId:item.id,sourceVersion:version}).then(refresh,reason=>error(String(reason)));};
+      const locate=document.createElement('button');locate.type='button';locate.textContent='Locate';locate.onclick=()=>{const segment=segmentOrder.find(segment=>segment.sourceUri===item.target);if(segment){dialog.close();jump(segment);}};
+      row.append(label,locate,open,remove);
+      for(const [label,action]of [['Edit path','edit'],['Move up','up'],['Move down','down']]){const button=document.createElement('button');button.type='button';button.textContent=label;button.disabled=readOnly;button.onclick=async()=>{let path=item.path;if(action==='edit'){const values=await ask('Edit Include path',[{name:'path',label:'Include path',value:path}],'Apply');if(!values)return;path=values.path;}void request('include-edit',{action,uri:source.value,pieceId:item.id,sourceVersion:version,path}).then(refresh,reason=>error(String(reason)));};row.append(button);}
+      rows.append(row);
     }
     add.disabled=readOnly||!source.value;path.disabled=readOnly||!source.value;create.disabled=readOnly||!source.value;openSource.disabled=!source.value;
   };
@@ -1412,10 +1637,11 @@ async function manageIncludes(){
   add.onclick=()=>{
     if(readOnly||!path.value.trim()||add.disabled)return;
     add.disabled=true;
-    void request('include-edit',{action:'add',create:create.checked,uri:source.value,path:path.value}).then(()=>{path.value='';create.checked=false;void refresh();},reason=>{error(String(reason));add.disabled=false;});
+    const [side,id]=position.value.split(':');
+    void request('include-edit',{action:'add',create:create.checked,uri:source.value,sourceVersion:sources.find(item=>item.uri===source.value)?.version,path:path.value,after:id,position:side}).then(()=>{path.value='';create.checked=false;void refresh();},reason=>{error(String(reason));add.disabled=false;});
   };
   dialog.addEventListener('close',()=>dialog.remove());
-  dialog.append(title,hint,source,openSource,rows,path,createLabel,actions);
+  dialog.append(title,hint,source,openSource,rows,path,position,createLabel,actions);
   document.body.append(dialog);dialog.showModal();
   try{await refresh();}catch(reason){error(String(reason));dialog.close();}
 }
@@ -1606,7 +1832,6 @@ function showStatusDetails() {
 }
 
 let documentSelected = false;
-let documentMarkdownCache = '';
 function clearDocumentSelection() {
   if (!documentSelected) return;
   documentSelected = false;
@@ -1614,32 +1839,35 @@ function clearDocumentSelection() {
   for (const element of root.querySelectorAll('.segment.selected')) element.classList.remove('selected');
 }
 function selectAllDocument() {
-  if (readOnly) { toast('This view is read-only.', 'info'); return; }
-  if (!active) { toast('Click a text block first, then select the whole document.', 'info'); return; }
   deactivate();
   sourceFeedback();
   documentSelected = true;
   document.body.classList.add('document-selected');
   for (const element of root.querySelectorAll<HTMLElement>('.segment')) element.classList.add('selected');
-  documentMarkdownCache = segmentOrder.filter(segment => segment.editable && !segment.error).map(segment => segment.text.trimEnd()).join('\n\n');
-  void request('document-markdown').then(text => { if (documentSelected) documentMarkdownCache = String(text); }, () => {});
-  toast('Whole document selected. Press Ctrl+C to copy Markdown.', 'info');
+  toast('Whole document selected for copying. Ctrl+C copies the complete root Markdown, preserving @import.', 'info');
 }
 function copyDocument() {
   void request('document-markdown').then(text => request('copy', {text: String(text)})).then(() => toast('Document copied as Markdown.', 'success'), reason => toast(`Copy failed: ${String(reason)}`, 'error'));
 }
 document.addEventListener('copy', event => {
   if (!documentSelected) return;
-  const text = documentMarkdownCache || segmentOrder.filter(segment => segment.editable && !segment.error).map(segment => segment.text.trimEnd()).join('\n\n');
-  event.clipboardData?.setData('text/plain', text);
   event.preventDefault();
-  toast('Document copied as Markdown.', 'success');
+  toast('Preparing complete Markdown for copying…', 'info');
+  copyDocument();
 });
+function selectedSourceBoundary(){
+  const selection=window.getSelection();if(!selection?.rangeCount||selection.isCollapsed)return;
+  const start=selection.anchorNode?.parentElement?.closest<HTMLElement>('.segment'),end=selection.focusNode?.parentElement?.closest<HTMLElement>('.segment');
+  const a=start?segments.get(start.dataset.id!):undefined,b=end?segments.get(end.dataset.id!):undefined;
+  if(a&&b&&a.sourceUri!==b.sourceUri)return `${a.sourceFile} / ${b.sourceFile}`;
+}
+document.addEventListener('cut',event=>{const boundary=selectedSourceBoundary();if(!boundary)return;event.preventDefault();event.clipboardData?.setData('text/plain',window.getSelection()?.toString()??'');toast(`Copied selection. Cutting across separate sources is blocked: ${boundary}`,'info');},true);
+document.addEventListener('keydown',event=>{if(!event.isComposing&&['Backspace','Delete'].includes(event.key)){const boundary=selectedSourceBoundary();if(boundary){event.preventDefault();event.stopImmediatePropagation();error(`Cannot delete across separate sources: ${boundary}`);}}},true);
 document.addEventListener('pointerdown', event => { if (documentSelected && !statusbar.contains(event.target as Node)) clearDocumentSelection(); }, true);
 document.addEventListener('keydown', event => { if (documentSelected && event.key === 'Escape') clearDocumentSelection(); }, true);
 
 const commandRegistry: Record<string, () => void> = {
-  save: () => send({type: 'save'}),
+  save: () => {const dialog=document.querySelector('dialog[open]');if(dialog){dialog.dispatchEvent(new Event('apply-draft-and-save'));return;}if(active?.htmlEditor)deactivate();send({type:'save'});},
   'save-as': saveAsCopy,
   bold: () => { command(toggleMark(schema.marks.strong)); },
   italic: () => { command(toggleMark(schema.marks.em)); },
@@ -1663,6 +1891,7 @@ const commandRegistry: Record<string, () => void> = {
   about: () => information(productName, `${productVersion || '1.0.0'} · Local-first Markdown with editable includes.`),
   'select-all-document': () => selectAllDocument(),
   'copy-document': () => copyDocument(),
+  'export-markdown':()=>{void request('export-markdown').then(done=>toast(done?'Complete Markdown exported.':'Export cancelled.',done?'success':'info'),reason=>error(String(reason)));},
   format: () => openFormatMenu(),
 };
 
@@ -1675,6 +1904,8 @@ function applyPreferences(preferences: any) {
   if (typeof preferences.toolbarHidden === 'boolean') setToolbarHidden(preferences.toolbarHidden, false);
   if (typeof preferences.version === 'string') productVersion = preferences.version;
   if (typeof preferences.productName === 'string') productName = preferences.productName;
+  if(typeof preferences.rootUri==='string')rootDocumentUri=preferences.rootUri;
+  if(typeof preferences.rootVersion==='number')rootDocumentVersion=preferences.rootVersion;
   if (preferences.display && typeof preferences.display === 'object') {
     const value = preferences.display;
     if (typeof value.textSize === 'number') applyTextSize(value.textSize, false);
@@ -1717,6 +1948,8 @@ function appendSegments(batch:Segment[]) {
 }
 window.addEventListener('message',event => {
   const message = event.data;
+  if(message.type==='navigate-hash'){pendingAnchor=message.hash;scrollToHash(message.hash);return;}
+  if(message.type==='drafts'){restoredDrafts(message.drafts??[]);return;}
   if(message.type==='result'){const pending=requests.get(message.id);requests.delete(message.id);if(message.error)pending?.reject(new Error(message.error));else pending?.resolve(message.result);return;}
   if(message.type==='command'){
     const label=message.command;
@@ -1759,7 +1992,7 @@ window.addEventListener('message',event => {
     if (message.generation === generation) {
       appendSegments(message.segments);
     }
-  } else if(message.type==='index-complete'&&message.generation===generation){refreshMarkdownContext();restorePosition();
+  } else if(message.type==='index-complete'&&message.generation===generation){refreshMarkdownContext();restorePosition();if(pendingAnchor){scrollToHash(pendingAnchor);pendingAnchor='';}
   } else if(message.type==='pieces'){
     const affected=new Set([...message.removed,...message.updated.map((piece:any)=>piece.id)]);
     if(active&&active.segment.sourceUri===message.uri&&affected.has(active.segment.pieceId)){restoration=joinRestoration??{uri:active.segment.sourceUri,pieceId:active.segment.pieceId,id:active.segment.id,text:active.segment.text,top:active.element.getBoundingClientRect().top,position:active.view?.state.selection.from??1,focus:true};deactivate();}joinRestoration=undefined;
@@ -1770,13 +2003,15 @@ window.addEventListener('message',event => {
     }
     segmentOrder=segmentOrder.filter(segment=>segments.has(segment.id));segmentIndices.clear();segmentOrder.forEach((segment,index)=>segmentIndices.set(segment.id,index));ownership=new Map();for(const segment of segmentOrder){const key=ownerKey(segment);const entries=ownership.get(key)??[];entries.push(segment);ownership.set(key,entries);}navigator.reorder(segmentOrder.map(segment=>segment.id));refreshMarkdownContext();restorePosition();
   } else if (message.type === 'patch') {
+    if(message.uri===rootDocumentUri)rootDocumentVersion=message.version;
+    for(const segment of segmentOrder)if(segment.sourceUri===message.uri){segment.sourceVersion=message.version;}
     if (message.origin === origin) return;
     for (const segment of ownership.get(`${message.uri}::${message.pieceId}`) ?? []) {
       if (segment.text === message.text) continue;
       segment.text = message.text; segment.sourceVersion = message.version;navigator.index(segment);
       const element = elements.get(segment.id);
       if (!element) continue;
-      if (active?.element === element) {
+      if (active?.element === element && !active.region) {
         if (active.area) active.area.value = message.text;
         if (active.view) {
           const selection = Math.min(active.view.state.selection.from,parser.parse(message.text).content.size);
@@ -1785,6 +2020,10 @@ window.addEventListener('message',event => {
           active.view.updateState(state);
         }
       } else render(element,segment);
+    }
+    if(active?.region&&active.view&&active.segment.sourceUri===message.uri){
+      const view=active.view,doc=parser.parse(active.region.map(segment=>segment.text).join(''));
+      let state=EditorState.create({schema,doc,plugins:view.state.plugins});state=state.apply(state.tr.setSelection(TextSelection.near(doc.resolve(Math.min(view.state.selection.from,doc.content.size)))));view.updateState(state);
     }
     if (activeSearch) requestAnimationFrame(refreshSearchHighlights);
     refreshMarkdownContext();
@@ -1834,5 +2073,7 @@ window.addEventListener('message',event => {
   } else if (message.type === 'error') error(message.message);
 });
 let scrollTimer:ReturnType<typeof setTimeout>;
-window.addEventListener('scroll',() => { clearTimeout(scrollTimer); scrollTimer = setTimeout(() => vscode.setState({scroll:window.scrollY}),150); },{passive:true});
+window.addEventListener('scroll',() => { clearTimeout(scrollTimer); scrollTimer = setTimeout(() => vscode.setState({...vscode.getState(),scroll:window.scrollY}),150); },{passive:true});
 send({type:'ready'});
+
+installLocalization();
