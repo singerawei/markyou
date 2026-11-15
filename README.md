@@ -74,7 +74,7 @@ npx playwright install chromium-headless-shell
 npm run package
 ```
 
-Requires Node.js 20.19+ (22 recommended). The generated VSIX is ready to install.
+Requires Node.js 22 or newer for the publishing tool. The generated VSIX is ready to install.
 </details>
 
 ## Quick start
@@ -146,13 +146,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution workflow.
 
 ## Publishing
 
-The extension identity remains **markyou.markyou**. Marketplace installations receive published stable updates through VS Code's normal extension updates; GitHub uploads alone do not update Marketplace.
+The Marketplace extension identity is **singeraw.markyou**. Marketplace installations receive published stable updates through VS Code's normal extension updates; GitHub uploads alone do not update Marketplace. Earlier local test packages using `markyou.markyou` have a different identity and should be uninstalled when installing this publisher's package.
 
-1. Set the repository or `marketplace` environment Actions secret **VSCE_PAT** to a token with publish access to the existing `markyou` publisher. Never commit tokens. See the [official publishing guide](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
-2. Update `package.json`, `package-lock.json`, README versions and the changelog together. Push a matching tag: `v1.1.0-preview.1` publishes a Marketplace pre-release; `v1.1.0` publishes a stable release. Marketplace uses the numeric package version `1.1.0` for both channels.
+1. Under the `singeraw` publisher's **Trusted Publishing**, create a GitHub policy for owner `singerawei`, repository `markyou`, workflow `ci.yml`, environment `marketplace`. Actions requests an OIDC token with `id-token: write` and publishes with `vsce publish --oidc`. No stored publishing token is required. See the [official publishing guide](https://code.visualstudio.com/api/working-with-extensions/publishing-extension#publish-with-github-actions-and-trusted-publishing).
+2. Update `package.json`, `package-lock.json`, README versions and the changelog together. Push a matching tag: `v1.1.0-preview.1` publishes numeric version `1.1.0` as a Marketplace pre-release. A later stable release must use a different numeric version, such as `1.2.0`, and a matching stable tag. Do not reuse an already published preview version for stable. Pre-release VSIX packages are marked before they are tested.
 3. Actions runs Linux/Windows checks and UI tests, packages Windows x64, audits the VSIX, and tests the installed package in isolated VS Code. GitHub Release and Marketplace receive the same tested VSIX. Only VSIX and README files are attached to Releases; generated reports stay in short-lived Actions artifacts.
 4. Stable tags additionally require real-user/IME/PDF/recovery/performance acceptance for the exact VSIX. Download the `markyou-vsix` artifact, test it, attach the completed `acceptance.json` to a draft Release for that tag, then rerun the failed **acceptance** job. `scripts/check-release.mjs` validates hashes and evidence; missing or stale evidence blocks stable publishing. Pre-release tags still require all automated checks.
-5. If Marketplace publishing fails after the GitHub Release is created, configure the secret and rerun only the failed job. Source commits exclude VSIX, Chromium, dependencies, local reviews, reports and credentials through `.gitignore`.
+5. If Marketplace publishing fails after the GitHub Release is created, verify the publisher policy's exact repository, workflow and environment names and rerun only the failed job. Source commits exclude VSIX, Chromium, dependencies, local reviews, reports and credentials through `.gitignore`.
 
 Use **More → Block actions → Edit continuous section** for native selections, cut/delete and undo across adjacent same-source blocks (up to 32 blocks / 32 KiB per writing surface). Includes and source-backed complex blocks form explicit boundaries; cross-source destructive edits remain blocked. Automated tests do not certify real IME, screen-reader or user-study acceptance. A pre-release does not mark those manual stable-release gates complete.
 

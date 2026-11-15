@@ -1,6 +1,6 @@
 # Contributing
 
-Use Node.js 20.19+ (22 recommended), run `npm ci`, then `npm run check`.
+Use Node.js 22 or newer (`.nvmrc` selects 22), run `npm ci`, then `npm run check`.
 Run `npx playwright install chromium` once before `npm run test:ui`.
 
 Before submitting a change, verify `npm run bench` and `npm run package` as well.

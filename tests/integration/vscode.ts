@@ -6,10 +6,11 @@ import { EditorProvider } from '../../src/extension/editorProvider';
 import { generate } from '../../bench/generator';
 import { CompositeDocument } from '../../src/extension/compositeDocument';
 import{serializeSource}from'../../src/document/serializer';
+import manifest from '../../package.json';
 
 export async function run() {
   const directory = await realpath(await mkdtemp(join(vscode.workspace.workspaceFolders![0].uri.fsPath,'fixture-')));
-  const extension = vscode.extensions.getExtension('markyou.markyou')!;
+  const extension = vscode.extensions.getExtension(`${manifest.publisher}.${manifest.name}`)!;
   await extension.activate();
   const provider = extension.exports.provider as EditorProvider;
   const master = join(directory,'MASTER.md'),child = join(directory,'child.md');

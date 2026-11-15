@@ -2,6 +2,8 @@
 
 ## 1.1.0 — 2026-11-15
 
+- Publish as `singeraw.markyou` through GitHub OIDC Trusted Publishing; upgrade the pinned publishing tool to vsce 4.1.1 (Node.js 22+), and mark preview packages before installed-VSIX tests.
+
 - Preserve quoted TSV cells, whitespace, paths, empty cells and GFM hard breaks across paste/save/reopen; keep the GFM header mandatory.
 - Navigate individual search occurrences and validate source URI, version and range before replacement. Preview and deduplicate multi-file replacement.
 - Copy complete root Markdown through the confirmed host clipboard, including complex blocks and empty documents.

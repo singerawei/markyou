@@ -5,13 +5,19 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      verify_marketplace:
+        description: Verify Marketplace OIDC policy without publishing
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
-  group: markyou-${{ github.workflow }}-${{ github.ref }}
+  group: markyou-${{ github.workflow }}-${{ github.ref }}-${{ inputs.verify_marketplace && 'auth' || 'verify' }}
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 jobs:
   verify:
+    if: github.event_name != 'workflow_dispatch' || !inputs.verify_marketplace
     strategy:
       fail-fast: false
       matrix:
@@ -42,6 +48,8 @@ jobs:
       - run: npm run bench
       - name: Package Windows VSIX
         if: runner.os == 'Windows'
+        env:
+          MARKYOU_PRE_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-') }}
         run: npm run package
       - name: Audit exact VSIX and record checksum
         if: runner.os == 'Windows'
@@ -87,6 +95,23 @@ jobs:
           path: |
             test-results/
             bench/results/*.json
+  marketplace-auth:
+    if: github.event_name == 'workflow_dispatch' && inputs.verify_marketplace
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: marketplace
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Exchange OIDC identity without uploading an extension
+        run: node scripts/check-marketplace-oidc.mjs
   acceptance:
     if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
     needs: verify
@@ -148,6 +173,9 @@ jobs:
     needs: release
     runs-on: ubuntu-latest
     environment: marketplace
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -161,14 +189,13 @@ jobs:
           path: release
       - name: Publish tested package to VS Code Marketplace
         env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
           RELEASE_TAG: ${{ github.ref_name }}
         shell: bash
         run: |
-          if [[ -z "$VSCE_PAT" ]]; then
-            echo '::error::Set the VSCE_PAT Actions secret with publish access to the markyou publisher.'
-            exit 1
-          fi
+          cd release
+          sed -i '1s/^\xEF\xBB\xBF//' SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
+          cd ..
           flags=()
           if [[ "$RELEASE_TAG" == *-* ]]; then flags+=(--pre-release); fi
-          npx --no-install vsce publish --packagePath release/*.vsix --skip-duplicate "${flags[@]}"
+          npx --no-install vsce publish --oidc --packagePath release/*.vsix --skip-duplicate "${flags[@]}"

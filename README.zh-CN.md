@@ -81,7 +81,7 @@ npx playwright install chromium-headless-shell
 npm run package
 ```
 
-需要 Node.js 20.19+（推荐 22）。生成的 VSIX 可直接安装。
+发布工具需要 Node.js 22 或更新版本。生成的 VSIX 可直接安装。
 </details>
 
 ## 快速开始
@@ -153,13 +153,13 @@ npm run package      # 构建 VSIX
 
 ## 自动发布
 
-插件身份保持 `markyou.markyou`。只有成功发布到 Marketplace 后，VS Code 才会通过正常扩展更新机制更新已安装插件；仅上传 GitHub 不会同步 Marketplace。
+Marketplace 插件身份为 `singeraw.markyou`。只有成功发布到 Marketplace 后，VS Code 才会通过正常扩展更新机制更新已安装插件；仅上传 GitHub 不会同步 Marketplace。之前以 `markyou.markyou` 标识安装的本地测试包属于另一扩展，安装当前发布者的版本时应先卸载旧测试包。
 
-1. 在仓库或 `marketplace` 环境的 Actions secrets 中配置 `VSCE_PAT`，令牌须有现有 `markyou` publisher 的发布权限。不要提交或在聊天中发送令牌。
-2. 同步更新版本、锁文件、README 和更新日志。推送 `v1.1.0-preview.1` 标签发布预览通道；推送 `v1.1.0` 发布稳定通道。Marketplace 包版本使用数字版本 `1.1.0`。
+1. 在 `singeraw` 发布者的 **Trusted Publishing** 中创建策略：Repository owner 为 `singerawei`、Repository 为 `markyou`、Workflow 为 `ci.yml`、Environment 为 `marketplace`。Actions 通过 `id-token: write` 申请 OIDC 身份，执行 `vsce publish --oidc`；无需保存发布令牌。
+2. 同步更新版本、锁文件、README 和更新日志。推送 `v1.1.0-preview.1` 将数字版本 `1.1.0` 发布到预览通道。后续稳定版须使用不同的数字版本，例如 `1.2.0`，并推送匹配的稳定标签；不能将已经发布的预览版本号直接复用为稳定版。预览 VSIX 在测试前即写入预览标记。
 3. Actions 执行 Linux/Windows 检查、UI 测试、Windows 打包、品牌审计和真实 VS Code 安装包测试，再将同一份 VSIX 发布到 GitHub Release 和 Marketplace。Release 只附带 VSIX、README；测试报告仅保留为短期 Actions 产物。
 4. 稳定版保留真人输入法、用户任务、PDF、恢复和性能验收门禁。下载 `markyou-vsix` 产物实测，把匹配包哈希的 `acceptance.json` 附到该标签的草稿 Release，然后只重跑失败的 acceptance 作业。证据缺失或过期时禁止稳定发布。
-5. Marketplace 步骤失败时，补齐密钥后重跑失败作业即可。`.gitignore` 排除了 VSIX、Chromium、依赖、评审记录、测试报告和凭据；VSIX 作为 Release 附件提供。
+5. Marketplace 步骤失败时，检查发布者策略中的仓库、工作流和环境名称是否完全一致，再重跑失败作业。`.gitignore` 排除了 VSIX、Chromium、依赖、评审记录、测试报告和凭据；VSIX 作为 Release 附件提供。
 
 “更多 → 块操作 → 编辑同源连续章节”支持相邻同源块之间的原生选区、剪切／删除和撤销；每个写作区域最多 32 块／32 KiB。Include 和需源码编辑的复杂块是明确边界，跨来源的破坏性操作继续阻止。自动化通过不代表真人输入法、读屏与用户任务验收完成，预览发布也不代表已满足稳定版门禁。
 

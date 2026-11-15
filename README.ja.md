@@ -72,7 +72,7 @@ npx playwright install chromium-headless-shell
 npm run package
 ```
 
-Node.js 20.19+（22 推奨）が必要です。生成された VSIX はそのままインストールできます。
+Node.js 22 以降が必要です。生成された VSIX はそのままインストールできます。
 </details>
 
 ## クイックスタート
