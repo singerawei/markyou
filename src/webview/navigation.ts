@@ -304,14 +304,10 @@ export class DocumentNavigation {
     }
     this.search();
     if (focus) {
-      requestAnimationFrame(() => {
-        if (mode === 'find') {
-          this.input.focus();
-        } else {
-          this.updateCurrentHeading();
-          this.results.focus();
-        }
-      });
+      // Focus while opening. A deferred frame can run after the user has
+      // moved to Replace and redirect their first keystrokes into Find.
+      if (mode === 'find') this.input.focus();
+      else { this.updateCurrentHeading(); this.results.focus(); }
     }
     this.options.onPreferenceChange?.({mode});
   }

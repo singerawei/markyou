@@ -137,12 +137,30 @@ test('table paste preserves paths, spaces, quoted newlines and stays GFM after r
   await expect(page.getByRole('button',{name:'Toggle header row',exact:true})).toHaveCount(0);
 });
 
+test('opening Find cannot steal focus back from Replace on the next frame',async({page})=>{
+  await launch(page,{[root]:'word root\n'});
+  const keptFocus=await page.evaluate(()=>{
+    const original=window.requestAnimationFrame,frames:FrameRequestCallback[]=[];
+    window.requestAnimationFrame=callback=>frames.push(callback);
+    try{
+      document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'f',ctrlKey:true,bubbles:true,cancelable:true}));
+      const replacement=document.querySelector<HTMLInputElement>('.navigation-replace input')!;
+      replacement.focus();
+      for(const frame of frames.splice(0))frame(performance.now());
+      return document.activeElement===replacement;
+    }finally{window.requestAnimationFrame=original;}
+  });
+  expect(keptFocus).toBe(true);
+});
+
 test('each occurrence navigates separately and replacing the second child match preserves root',async({page})=>{
   const host=await launch(page,{[root]:'word root\n\n@import "./payment.md"\n',[child]:'word word word child\n'});
   await page.keyboard.press('Control+f');await page.getByLabel('Find in document').fill('word');
   await expect(page.locator('.navigation-result')).toHaveCount(4);
   await page.locator('.navigation-result').nth(2).click();
   await page.keyboard.press('Control+f');await page.getByLabel('Replace with').fill('CHANGED');
+  await expect(page.getByLabel('Find in document')).toHaveValue('word');
+  await expect(page.getByLabel('Replace with')).toHaveValue('CHANGED');
   await page.getByRole('button',{name:'Replace',exact:true}).click();
   await expect.poll(()=>host.repository.sources.get(child)!.pieces.map(piece=>piece.raw).join('')).toBe('word CHANGED word child\n');
   expect(host.repository.sources.get(root)!.pieces[0].raw).toBe('word root\n\n');

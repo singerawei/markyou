@@ -84,6 +84,7 @@ jobs:
         with:
           name: markyou-vsix
           if-no-files-found: error
+          overwrite: true
           path: |
             markyou-win32-x64-*.vsix
             SHA256SUMS.txt
@@ -92,6 +93,7 @@ jobs:
         with:
           name: test-results-${{ matrix.os }}
           retention-days: 7
+          overwrite: true
           path: |
             test-results/
             bench/results/*.json
