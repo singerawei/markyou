@@ -1,4 +1,4 @@
-<p align="center"><img src="media/markyou-logo.png" alt="MarkYou" width="104"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/singerawei/markyou/main/media/markyou-logo.png" alt="MarkYou" width="104"></p>
 
 <h1 align="center">MarkYou</h1>
 
@@ -23,7 +23,7 @@
   <img src="https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square" alt="MIT">
 </p>
 
-<p align="center"><img src="media/markyou-hero.png" alt="표와 구문 강조 코드 블록이 있는 Markdown 문서를 편집하는 MarkYou" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/singerawei/markyou/main/media/markyou-hero.png" alt="표와 구문 강조 코드 블록이 있는 Markdown 문서를 편집하는 MarkYou" width="100%"></p>
 
 MarkYou는 평범한 `.md` 파일을 VS Code 안에서 클릭해 편집할 수 있는 문서로 바꿔 줍니다. 파일이 유일한 원본으로 남으며, 저장할 때마다 Markdown이 해당 내용을 소유한 파일로 기록됩니다. 따라서 Git, 텍스트 편집기 및 다른 모든 Markdown 도구를 계속 사용할 수 있습니다.
 

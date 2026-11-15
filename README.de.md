@@ -1,4 +1,4 @@
-<p align="center"><img src="media/markyou-logo.png" alt="MarkYou" width="104"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/singerawei/markyou/main/media/markyou-logo.png" alt="MarkYou" width="104"></p>
 
 <h1 align="center">MarkYou</h1>
 
@@ -23,7 +23,7 @@ Klicken Sie auf einen beliebigen Block, um ihn direkt zu bearbeiten – reine <c
   <img src="https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square" alt="MIT">
 </p>
 
-<p align="center"><img src="media/markyou-hero.png" alt="MarkYou bearbeitet ein Markdown-Dokument mit Tabelle und farbig hervorgehobenem Codeblock" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/singerawei/markyou/main/media/markyou-hero.png" alt="MarkYou bearbeitet ein Markdown-Dokument mit Tabelle und farbig hervorgehobenem Codeblock" width="100%"></p>
 
 MarkYou verwandelt gewöhnliche `.md`-Dateien in ein Dokument, das sich in VS Code per Klick bearbeiten lässt. Ihre Dateien bleiben die einzige Wahrheitsquelle: Beim Speichern wird Markdown immer in die Datei zurückgeschrieben, der der Inhalt gehört. Git, Ihr Texteditor und alle anderen Markdown-Werkzeuge funktionieren also weiterhin.
 

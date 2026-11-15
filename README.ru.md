@@ -1,4 +1,4 @@
-<p align="center"><img src="media/markyou-logo.png" alt="MarkYou" width="104"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/singerawei/markyou/main/media/markyou-logo.png" alt="MarkYou" width="104"></p>
 
 <h1 align="center">MarkYou</h1>
 
@@ -23,7 +23,7 @@
   <img src="https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square" alt="MIT">
 </p>
 
-<p align="center"><img src="media/markyou-hero.png" alt="MarkYou редактирует документ Markdown с таблицей и блоком кода с подсветкой" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/singerawei/markyou/main/media/markyou-hero.png" alt="MarkYou редактирует документ Markdown с таблицей и блоком кода с подсветкой" width="100%"></p>
 
 MarkYou превращает обычные файлы `.md` в документ, который можно редактировать щелчком мыши прямо в VS Code. Ваши файлы остаются единственным источником истины: при каждом сохранении Markdown записывается обратно в файл, которому принадлежит содержимое, поэтому Git, текстовый редактор и любые другие инструменты Markdown продолжают работать.
 

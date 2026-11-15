@@ -1,4 +1,4 @@
-<p align="center"><img src="media/markyou-logo.png" alt="MarkYou" width="104"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/singerawei/markyou/main/media/markyou-logo.png" alt="MarkYou" width="104"></p>
 
 <h1 align="center">MarkYou</h1>
 
@@ -23,7 +23,7 @@ Cliquez sur n'importe quel bloc pour le modifier sur place, et gardez vos fichie
   <img src="https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square" alt="MIT">
 </p>
 
-<p align="center"><img src="media/markyou-hero.png" alt="MarkYou en train de modifier un document Markdown avec un tableau et un bloc de code coloré" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/singerawei/markyou/main/media/markyou-hero.png" alt="MarkYou en train de modifier un document Markdown avec un tableau et un bloc de code coloré" width="100%"></p>
 
 MarkYou transforme des fichiers `.md` ordinaires en un document modifiable au clic dans VS Code. Vos fichiers restent la source unique de vérité : chaque enregistrement réécrit le Markdown dans le fichier qui possède le contenu, de sorte que Git, votre éditeur de texte et tous les autres outils Markdown continuent de fonctionner.
 

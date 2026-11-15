@@ -1,4 +1,4 @@
-<p align="center"><img src="media/markyou-logo.png" alt="MarkYou" width="104"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/singerawei/markyou/main/media/markyou-logo.png" alt="MarkYou" width="104"></p>
 
 <h1 align="center">MarkYou</h1>
 
@@ -23,7 +23,7 @@
   <img src="https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square" alt="MIT">
 </p>
 
-<p align="center"><img src="media/markyou-hero.png" alt="MarkYou 正在编辑包含表格、Callout 与高亮代码块的 Markdown 文档" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/singerawei/markyou/main/media/markyou-hero.png" alt="MarkYou 正在编辑包含表格、Callout 与高亮代码块的 Markdown 文档" width="100%"></p>
 
 MarkYou 让你在 VS Code 中直接编辑渲染后的 Markdown 文档。点击段落就能写作，表格可以直接修改，分散在多个文件中的章节也能放在一起编辑。保存后仍是普通 `.md` 文件，可以继续用 Git 管理，也能用其他 Markdown 工具打开。
 

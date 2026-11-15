@@ -1,4 +1,4 @@
-<p align="center"><img src="media/markyou-logo.png" alt="MarkYou" width="104"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/singerawei/markyou/main/media/markyou-logo.png" alt="MarkYou" width="104"></p>
 
 <h1 align="center">MarkYou</h1>
 
@@ -23,7 +23,7 @@ A local-first, click-to-edit Markdown editor for VS Code — with editable multi
   <img src="https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square" alt="MIT">
 </p>
 
-<p align="center"><img src="media/markyou-hero.png" alt="MarkYou editing a Markdown document with a table, callout and syntax-highlighted code block" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/singerawei/markyou/main/media/markyou-hero.png" alt="MarkYou editing a Markdown document with a table, callout and syntax-highlighted code block" width="100%"></p>
 
 MarkYou lets you edit Markdown as a rendered document inside VS Code. Click a paragraph, update a table, or edit an included chapter; save your work as ordinary `.md` files that you can keep using with Git and other Markdown tools.
 
