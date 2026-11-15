@@ -154,6 +154,8 @@ The Marketplace extension identity is **singeraw.markyou**. Marketplace installa
 4. Stable tags additionally require real-user/IME/PDF/recovery/performance acceptance for the exact VSIX. Download the `markyou-vsix` artifact, test it, attach the completed `acceptance.json` to a draft Release for that tag, then rerun the failed **acceptance** job. `scripts/check-release.mjs` validates hashes and evidence; missing or stale evidence blocks stable publishing. Pre-release tags still require all automated checks.
 5. If Marketplace publishing fails after the GitHub Release is created, verify the publisher policy's exact repository, workflow and environment names and rerun only the failed job. Source commits exclude VSIX, Chromium, dependencies, local reviews, reports and credentials through `.gitignore`.
 
+To recover a successful preview whose Marketplace job was skipped, manually run `ci.yml` with `publish_preview_run` set to that successful release run's numeric ID. The workflow verifies the repository, preview tag, tested commit and successful Linux/Windows/release jobs, then checksums and publishes the original artifact. This recovery mode cannot publish stable releases.
+
 Use **More → Block actions → Edit continuous section** for native selections, cut/delete and undo across adjacent same-source blocks (up to 32 blocks / 32 KiB per writing surface). Includes and source-backed complex blocks form explicit boundaries; cross-source destructive edits remain blocked. Automated tests do not certify real IME, screen-reader or user-study acceptance. A pre-release does not mark those manual stable-release gates complete.
 
 ## License

@@ -10,14 +10,18 @@ on:
         description: Verify Marketplace OIDC policy without publishing
         type: boolean
         default: false
+      publish_preview_run:
+        description: Publish the unchanged VSIX from a successful preview release run ID
+        type: string
+        default: ''
 permissions:
   contents: read
 concurrency:
-  group: markyou-${{ github.workflow }}-${{ github.ref }}-${{ inputs.verify_marketplace && 'auth' || 'verify' }}
+  group: markyou-${{ github.workflow }}-${{ github.ref }}-${{ inputs.verify_marketplace && 'auth' || inputs.publish_preview_run || 'verify' }}
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 jobs:
   verify:
-    if: github.event_name != 'workflow_dispatch' || !inputs.verify_marketplace
+    if: github.event_name != 'workflow_dispatch' || (!inputs.verify_marketplace && !inputs.publish_preview_run)
     strategy:
       fail-fast: false
       matrix:
@@ -171,12 +175,13 @@ jobs:
             gh release create "$RELEASE_TAG" release/*.vsix README.md README.zh-CN.md --verify-tag --generate-notes --title "MarkYou $RELEASE_TAG" "${flags[@]}"
           fi
   marketplace:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: always() && ((startsWith(github.ref, 'refs/tags/v') && needs.release.result == 'success') || (github.event_name == 'workflow_dispatch' && inputs.publish_preview_run != ''))
     needs: release
     runs-on: ubuntu-latest
     environment: marketplace
     permissions:
       contents: read
+      actions: read
       id-token: write
     steps:
       - uses: actions/checkout@v4
@@ -185,13 +190,21 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - name: Verify the source of the tested release package
+        id: package-source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUBLISH_PREVIEW_RUN: ${{ inputs.publish_preview_run }}
+        run: node scripts/prepare-marketplace-publish.mjs
       - uses: actions/download-artifact@v4
         with:
           name: markyou-vsix
           path: release
+          run-id: ${{ steps.package-source.outputs.artifact_run_id }}
+          github-token: ${{ github.token }}
       - name: Publish tested package to VS Code Marketplace
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ steps.package-source.outputs.release_tag }}
         shell: bash
         run: |
           cd release
