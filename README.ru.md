@@ -54,12 +54,12 @@ MarkYou превращает обычные файлы `.md` в документ
 
 Установите [предварительную версию MarkYou из Marketplace](https://marketplace.visualstudio.com/items?itemName=singeraw.markyou), выбрав **Install Pre-Release Version**. Также можно установить VSIX-файл:
 
-1. Скачайте `markyou-win32-x64-1.1.1.vsix` со страницы [GitHub Releases](https://github.com/singerawei/markyou/releases).
+1. Скачайте `markyou-win32-x64-1.1.2.vsix` со страницы [GitHub Releases](https://github.com/singerawei/markyou/releases).
 2. В VS Code откройте **Расширения**, нажмите **… → Установить из VSIX…** и выберите файл.
 3. Перезагрузите VS Code.
 4. Щёлкните правой кнопкой по файлу `.md` и выберите **Открыть с помощью… → MarkYou**.
 
-VSIX занимает около 125 МБ, так как включает движок Chromium для отрисовки Mermaid и экспорта PDF.
+Mermaid и экспорт PDF сначала используют установленный Microsoft Edge или Google Chrome. Если они недоступны, движок загружается при первом использовании и сохраняется отдельно для дальнейшей работы без сети.
 
 ## Быстрый старт
 

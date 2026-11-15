@@ -12,6 +12,7 @@ import type { PieceEdit } from '../shared/types';
 import { replaceMatches } from '../shared/replacements';
 import { DocumentGraph } from '../document/documentGraph';
 import { exportPdf,type PdfOptions } from './pdf';
+import { launchManagedBrowser } from './browserRuntime';
 import { DiagramService } from './diagramService';
 import {portableMarkdown} from '../document/portableMarkdown';
 
@@ -33,7 +34,7 @@ export class EditorProvider implements vscode.CustomEditorProvider<CompositeDocu
   private readonly diagramJobs=new Map<string,AbortController>();
   private queue: Promise<unknown> = Promise.resolve();
   constructor(readonly context: vscode.ExtensionContext) {
-    this.diagrams=new DiagramService(context.extensionUri.fsPath);
+    this.diagrams=new DiagramService(context.extensionUri.fsPath,request=>launchManagedBrowser(context.extensionUri.fsPath,context.globalStorageUri.fsPath,request));
     const watcher = vscode.workspace.createFileSystemWatcher('**/*');
     const onFile = (uri: vscode.Uri) => {
       const key = uriForPath(uri.fsPath);
@@ -171,7 +172,7 @@ export class EditorProvider implements vscode.CustomEditorProvider<CompositeDocu
             // Display settings are user-global: every open document must follow.
             for(const other of this.documents)this.post(other,{type:'preferences',preferences:this.documentPreferences(other)});
           }
-          else if (message.type === 'export-pdf') { if(this.exporting){void vscode.window.showInformationMessage('A PDF export is already running.');return;}this.exporting=true;void this.context.globalState.update('pdf-options',message.options);void exportPdf(document,this.context.extensionUri.fsPath,message.options).catch(error=>vscode.window.showErrorMessage(String(error))).finally(()=>{this.exporting=false;}); }
+          else if (message.type === 'export-pdf') { if(this.exporting){void vscode.window.showInformationMessage('A PDF export is already running.');return;}this.exporting=true;void this.context.globalState.update('pdf-options',message.options);void this.exportToPdf(document,message.options).catch(error=>vscode.window.showErrorMessage(String(error))).finally(()=>{this.exporting=false;}); }
           else if (message.type === 'metrics' && ['readable','editable','diagram'].includes(message.phase)) {
             document.metrics[message.phase] ??= (Number.isFinite(message.timestamp) ? message.timestamp : Date.now())-document.openedAt;
           } else if (message.type === 'benchmark-result') document.benchmark = message.result;
@@ -541,7 +542,7 @@ export class EditorProvider implements vscode.CustomEditorProvider<CompositeDocu
   private post(document: CompositeDocument, message: unknown) { for (const panel of document.panels) void panel.webview.postMessage(message); }
   openExport() { for (const document of this.documents) for (const panel of document.panels) if (panel.active) void panel.webview.postMessage({type:'open-export'}); }
   dispatch(command:string,context?:unknown){for(const document of this.documents)for(const panel of document.panels)if(panel.active)void panel.webview.postMessage({type:'command',command,context});}
-  exportToPdf(document:CompositeDocument,options:PdfOptions){return exportPdf(document,this.context.extensionUri.fsPath,options);}
+  exportToPdf(document:CompositeDocument,options:PdfOptions){return exportPdf(document,this.context.extensionUri.fsPath,this.context.globalStorageUri.fsPath,options);}
   async saveCustomDocument(document: CompositeDocument) {
     await this.enqueue(async () => { this.sealEditGroup(); await document.repository.save(document.trackedSources); this.post(document,this.status(document)); });
   }

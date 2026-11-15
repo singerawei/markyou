@@ -10,15 +10,15 @@ Use Node.js 22 or newer (`.nvmrc` selects 22).
 git clone https://github.com/singerawei/markyou.git
 cd markyou
 npm ci
-npx playwright install chromium chromium-headless-shell
+npx playwright install chromium
 npm run check        # lint, typecheck, core tests and build
 npm run test:ui      # browser UI tests
 npm run test:host    # real VS Code host tests
 npm run bench       # performance measurements
-npm run package     # Windows x64 VSIX, including the offline PDF engine
+npm run package     # Windows x64 VSIX without a bundled browser
 ```
 
-Packaging bundles the installed Chromium headless shell. Set `MARKYOU_PRE_RELEASE=true` when packaging a preview. The generated VSIX can be installed with VS Code's **Install from VSIX…** action.
+Packaging excludes browser binaries and enforces a 20 MiB size limit. PDF and Mermaid use installed Edge/Chrome; otherwise the pinned Playwright headless shell is downloaded into extension global storage on first use. Startup prewarming never downloads. Set `MARKYOU_PRE_RELEASE=true` when packaging a preview. The generated VSIX can be installed with VS Code's **Install from VSIX…** action.
 
 Never regenerate untouched Markdown blocks or flatten included content into the root file. Include regression coverage for ownership, data loss, conflicts and security fixes. Preserve unsupported syntax.
 

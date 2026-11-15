@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.2 — 2026-11-16
+
+- Use installed Microsoft Edge or Google Chrome for PDF export and Mermaid rendering.
+- Download a rendering engine on first use only when needed, with cancellable progress, retry and a reusable local cache.
+- Remove the bundled Chromium browser to reduce download and installation size.
+
 ## 1.1.1 — 2026-11-16
 
 - Refresh the product introduction, feature guide and Marketplace installation instructions.

@@ -54,12 +54,12 @@ MarkYou は、普通の `.md` ファイルを VS Code 内でクリックして�
 
 [Marketplace の MarkYou](https://marketplace.visualstudio.com/items?itemName=singeraw.markyou) で **Install Pre-Release Version** を選ぶとプレビュー版をインストールできます。VSIX ファイルからのインストールも可能です。
 
-1. [GitHub Releases](https://github.com/singerawei/markyou/releases) から `markyou-win32-x64-1.1.1.vsix` をダウンロードします。
+1. [GitHub Releases](https://github.com/singerawei/markyou/releases) から `markyou-win32-x64-1.1.2.vsix` をダウンロードします。
 2. VS Code で **拡張機能** を開き、**… → VSIX からインストール…** をクリックしてファイルを選択します。
 3. VS Code を再読み込みします。
 4. `.md` ファイルを右クリックし、**アプリケーションから開く… → MarkYou** を選択します。
 
-VSIX は約 125 MB です。Mermaid のレンダリングと PDF 書き出しに使う Chromium エンジンを同梱しているためです。
+Mermaid と PDF 書き出しには、インストール済みの Microsoft Edge または Google Chrome を優先して使います。どちらも利用できない場合は初回利用時にエンジンをダウンロードし、以後はオフラインで再利用します。
 
 ## クイックスタート
 

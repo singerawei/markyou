@@ -7,6 +7,8 @@ import { generate } from '../../bench/generator';
 import { CompositeDocument } from '../../src/extension/compositeDocument';
 import{serializeSource}from'../../src/document/serializer';
 import manifest from '../../package.json';
+import {pathToFileURL} from 'node:url';
+import {acquireBrowser,browserCacheLayout,installBrowser,isFile} from '../../src/extension/browserRuntimeCore';
 
 export async function run() {
   const directory = await realpath(await mkdtemp(join(vscode.workspace.workspaceFolders![0].uri.fsPath,'fixture-')));
@@ -136,6 +138,24 @@ export async function run() {
   await deletedRestore.repository.resolveConflict(deletedRestore.rootUri,'keep'); await provider.saveCustomDocument(deletedRestore);
   assert.match(await readFile(master,'utf8'),/Root changed/); deletedRestore.dispose();
   console.log("HOST_STAGE pdf");
+  // Exercise the real downloader under VS Code's Electron executable, with no
+  // system browsers, and then reuse the same cache without another download.
+  const runtimePath=join(extension.extensionPath,'dist','node_modules','playwright-core');
+  const cachePath=process.env.MARKYOU_BROWSER_TEST_CACHE!;
+  const cachedBrowser=async()=>{const paths=await browserCacheLayout(runtimePath,cachePath);return await isFile(paths.marker)&&await isFile(paths.executablePath)?{name:'Chromium',executablePath:paths.executablePath}:undefined;};
+  const previouslyCached=!!await cachedBrowser();let browserDownloads=0;
+  const runtime=await import(pathToFileURL(join(runtimePath,'index.mjs')).href) as typeof import('playwright-core');
+  for(let attempt=0;attempt<2;attempt++){
+    const fallback=await acquireBrowser({installed:async()=>[],cached:cachedBrowser,
+      install:async(force,signal,report)=>{browserDownloads++;await installBrowser(runtimePath,cachePath,force,signal,report);},
+      launch:candidate=>runtime.chromium.launch({executablePath:candidate.executablePath,headless:true}),report:()=>{}
+    },new AbortController().signal);
+    try{const page=await fallback.newPage();await page.setContent('<h1>Downloaded engine</h1>');assert.equal((await page.pdf()).subarray(0,4).toString(),'%PDF');}
+    finally{await fallback.close();}
+  }
+  assert.equal(browserDownloads,previouslyCached?0:1);
+  console.log('HOST_BROWSER_RUNTIME',JSON.stringify({previouslyCached,browserDownloads,fallbackPdf:true,cacheReuse:true}));
+  await writeFile(join(process.env.MARKYOU_REPORT_DIR!,'browser-runtime.json'),JSON.stringify({fallbackPdf:true,cacheReuse:true,browserDownloads,electron:process.versions.electron}));
   await writeFile(child,'# Payment 中文\n\nSaved version\n\n```mermaid\nflowchart LR\n A[Start] --> B[Finish]\n```\n');
   const pdfDoc=await provider.openCustomDocument(vscode.Uri.file(master),{backupId:undefined,untitledDocumentData:undefined});await pdfDoc.graph.build();pdfDoc.trackSources();
   const pdfChildUri=await pdfDoc.repository.io.resolve(pdfDoc.rootUri,'./child.md');const payment=pdfDoc.repository.sources.get(pdfChildUri)!;const paymentPiece=payment.pieces.find(piece=>piece.raw.includes('Saved version'))!;

@@ -1,4 +1,5 @@
-import { chromium,type Browser,type Page } from 'playwright-core';
+import type { Browser,Page } from 'playwright-core';
+import type { BrowserRequest } from './browserRuntime';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 export class DiagramService {
@@ -10,7 +11,7 @@ export class DiagramService {
   private cache=new Map<string,string>();
   private prepare?:Promise<void>;
   private warmed=false;
-  constructor(private extensionPath:string){}
+  constructor(private extensionPath:string,private launchBrowser:(request:BrowserRequest)=>Promise<Browser>){}
   /**
    * Pay the browser launch, runtime load and parser warm-up while the document
    * is still being indexed. Requests wait for this promise instead of racing a
@@ -19,7 +20,7 @@ export class DiagramService {
   prewarm(){
     if(this.prepare||this.warmed)return;
     this.prepare=(async()=>{
-      const page=await this.page(this.workers[0]);
+      const page=await this.page(this.workers[0],false);
       await page.evaluate(async()=>{const mermaid=(window as any).mermaidRuntime;mermaid.initialize({startOnLoad:false,securityLevel:'strict',theme:'default',fontFamily:'Segoe UI, Microsoft YaHei, sans-serif',maxTextSize:100000,maxEdges:1000,suppressErrorRendering:true});try{await mermaid.render('markyou-warmup','flowchart LR\n A --> B');}catch{/* Warm-up is best effort. */}finally{document.body.replaceChildren();}});
       this.warmed=true;
     })().catch(()=>{/* A real render will report the actionable error. */}).finally(()=>{this.prepare=undefined;});
@@ -40,8 +41,8 @@ export class DiagramService {
     }
     if(!this.jobs.length&&!this.workers.some(worker=>worker.busy))this.idle=setTimeout(()=>this.release(),30000);
   }
-  private async page(worker:typeof this.workers[number]){
-    this.browser??=chromium.launch({executablePath:join(this.extensionPath,'engine','chrome-headless-shell.exe'),headless:true}).catch(error=>{this.browser=undefined;throw error;});
+  private async page(worker:typeof this.workers[number],allowDownload=true){
+    this.browser??=this.launchBrowser({allowDownload}).catch(error=>{this.browser=undefined;throw error;});
     if(!worker.page||worker.page.isClosed()){
       const page=await(await this.browser).newPage({deviceScaleFactor:2});await page.route('**/*',route=>route.abort());await page.setContent('<html><body></body></html>');
       await page.addScriptTag({path:join(this.extensionPath,'dist','mermaid-runtime.js')});worker.page=page;

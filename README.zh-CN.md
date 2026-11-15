@@ -40,7 +40,7 @@ MarkYou 让你在 VS Code 中直接编辑渲染后的 Markdown 文档。点击�
 | **导出文档** | 导出 PDF 时设置纸张、边距、页眉页脚和页码；也能导出展开全部章节、附带本地资源的完整 Markdown。 |
 | **调整阅读体验** | 设置字号、阅读宽度和专注模式，或把文档切换为只读；随时查看当前来源和保存状态。 |
 
-文件保存在本地，无需账号，不收集遥测数据。Mermaid 渲染和 PDF 导出可离线使用；文档中的远程图片需要联网加载。
+文件保存在本地，无需账号，不收集遥测数据。Mermaid 渲染和 PDF 导出优先使用本机的 Microsoft Edge 或 Google Chrome；两者都不可用时，首次使用会下载渲染引擎并缓存，之后可离线复用。文档中的远程图片需要联网加载。
 
 ## 安装
 
@@ -50,7 +50,7 @@ MarkYou 让你在 VS Code 中直接编辑渲染后的 Markdown 文档。点击�
 2. 在 VS Code 的扩展页面选择 **安装预发行版本（Install Pre-Release Version）**。
 3. 右键 `.md` 文件，选择 **打开方式… → MarkYou**。
 
-也可以从 [GitHub Releases](https://github.com/singerawei/markyou/releases) 下载 Windows x64 的 `.vsix` 文件，在 VS Code 中选择 **扩展 → … → 从 VSIX 安装…**。安装包约 126 MB，包含离线 PDF 引擎，无需单独安装 Chrome 或 Edge。
+也可以从 [GitHub Releases](https://github.com/singerawei/markyou/releases) 下载 Windows x64 的 `.vsix` 文件，在 VS Code 中选择 **扩展 → … → 从 VSIX 安装…**。安装包不再内置浏览器。需要下载引擎时会显示进度，可取消；引擎单独缓存，下载失败后可以重试。
 
 ## 开始写作
 

@@ -1,6 +1,6 @@
 {
   "name": "markyou",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "displayName": "MarkYou — Modular Markdown Editor",
   "publisher": "singeraw",
   "icon": "media/markyou-icon.png",
@@ -282,7 +282,7 @@
     "vscode:prepublish": "npm run build",
     "lint": "eslint src tests bench",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/core.test.ts tests/roundtrip.test.ts tests/markdown-extensions.test.ts tests/review.test.ts tests/contract.test.ts tests/search.test.ts tests/gates.test.mjs tests/ux.test.ts tests/publish.test.mjs",
+    "test": "tsx --test tests/core.test.ts tests/roundtrip.test.ts tests/markdown-extensions.test.ts tests/review.test.ts tests/contract.test.ts tests/search.test.ts tests/gates.test.mjs tests/ux.test.ts tests/publish.test.mjs tests/browser-runtime.test.ts",
     "test:ui": "playwright test",
     "test:host": "node scripts/test-host.mjs",
     "bench": "tsx bench/run.ts",

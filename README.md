@@ -40,7 +40,7 @@ MarkYou lets you edit Markdown as a rendered document inside VS Code. Click a pa
 | **Export your work** | Export PDF with paper, margin, header, footer and page-number settings, or export a complete Markdown document with included chapters and local resources. |
 | **Read comfortably** | Adjust text size and reading width, use focus mode, or switch a document to read-only. The source and save status stay visible. |
 
-Your files stay local. No account is required, and there is no telemetry. Mermaid rendering and PDF export work offline; remote images need a network connection.
+Your files stay local. No account is required, and there is no telemetry. Mermaid and PDF export use your installed Microsoft Edge or Google Chrome. If neither is available, MarkYou downloads an engine on first use and reuses it for later offline use. Remote images need a network connection.
 
 ## Install
 
@@ -50,7 +50,7 @@ Your files stay local. No account is required, and there is no telemetry. Mermai
 2. Choose **Install Pre-Release Version** in VS Code.
 3. Right-click a `.md` file and choose **Open With… → MarkYou**.
 
-You can also download the Windows x64 `.vsix` from [GitHub Releases](https://github.com/singerawei/markyou/releases), then choose **Extensions → … → Install from VSIX…** in VS Code. The download is about 126 MB because it includes the offline PDF engine; no separate Chrome or Edge installation is needed.
+You can also download the Windows x64 `.vsix` from [GitHub Releases](https://github.com/singerawei/markyou/releases), then choose **Extensions → … → Install from VSIX…** in VS Code. The extension does not bundle a browser. If an engine is needed, its download shows progress, can be cancelled, and is cached separately from the extension. A failed download can be retried.
 
 ## Start writing
 

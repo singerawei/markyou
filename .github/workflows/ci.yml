@@ -45,9 +45,9 @@ jobs:
       - name: Install UI browser (Linux)
         if: runner.os == 'Linux'
         run: npx playwright install --with-deps chromium
-      - name: Install UI browser and packaged engine (Windows)
+      - name: Install UI test browser (Windows)
         if: runner.os == 'Windows'
-        run: npx playwright install chromium chromium-headless-shell
+        run: npx playwright install chromium
       - run: npm run test:ui
       - run: npm run bench
       - name: Package Windows VSIX

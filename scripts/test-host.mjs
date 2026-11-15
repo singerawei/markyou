@@ -13,6 +13,7 @@ await writeFile(join(directory,'profile','User','settings.json'),JSON.stringify(
 const workspace = join(directory,'workspace'); await mkdir(workspace); await writeFile(join(workspace,'welcome.md'),'# MarkYou integration tests\n');
 const env = {...process.env}; delete env.ELECTRON_RUN_AS_NODE;
 env.MARKYOU_REPORT_DIR = resolve('bench/results');
+env.MARKYOU_BROWSER_TEST_CACHE = resolve('.cache/browser-test');
 let development = resolve('.');
 const vsix = process.argv[2];
 if (vsix) {
@@ -26,7 +27,7 @@ if (vsix) {
 const args = ['--no-sandbox',...(!vsix ? ['--disable-extensions'] : []),'--skip-welcome','--skip-release-notes','--disable-workspace-trust',`--user-data-dir=${join(directory,'profile')}`,`--extensions-dir=${join(directory,'extensions')}`,`--extensionDevelopmentPath=${development}`,`--extensionTestsPath=${resolve('dist/host-tests.cjs')}`,workspace];
 const child = spawn(executable,args,{windowsHide:true,env,stdio:'pipe'});
 child.stdout.on('data',data => process.stdout.write(data)); child.stderr.on('data',data => process.stderr.write(data));
-const timer = setTimeout(() => { child.kill(); },180000);
+const timer = setTimeout(() => { child.kill(); },300000);
 const exit = await new Promise(resolve => child.on('exit',resolve)); clearTimeout(timer);
 child.stdout.destroy();child.stderr.destroy();child.unref();
 console.log(`VS Code host exit: ${exit}`);

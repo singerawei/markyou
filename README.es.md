@@ -54,12 +54,12 @@ Está pensado para documentos que crecen. Combina varios archivos en un único d
 
 Instala la [versión preliminar de MarkYou en Marketplace](https://marketplace.visualstudio.com/items?itemName=singeraw.markyou) con **Install Pre-Release Version**. También puedes instalar el archivo VSIX:
 
-1. Descarga `markyou-win32-x64-1.1.1.vsix` desde [GitHub Releases](https://github.com/singerawei/markyou/releases).
+1. Descarga `markyou-win32-x64-1.1.2.vsix` desde [GitHub Releases](https://github.com/singerawei/markyou/releases).
 2. En VS Code, abre **Extensiones**, pulsa **… → Instalar desde VSIX…** y selecciona el archivo.
 3. Recarga VS Code.
 4. Haz clic derecho en cualquier archivo `.md` y elige **Abrir con… → MarkYou**.
 
-El VSIX pesa unos 125 MB porque incluye el motor Chromium que se usa para renderizar Mermaid y exportar PDF.
+Mermaid y la exportación PDF usan primero Microsoft Edge o Google Chrome del equipo. Si no están disponibles, el motor se descarga al usarlo por primera vez y se guarda por separado para usarlo sin conexión.
 
 ## Inicio rápido
 

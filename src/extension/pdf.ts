@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { chromium } from 'playwright-core';
+import { launchManagedBrowser } from './browserRuntime';
 import { join,dirname,resolve,relative,isAbsolute } from 'node:path';
 import { readFile,realpath,writeFile,rm,mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -13,7 +13,7 @@ import type { CompositeDocument } from './compositeDocument';
 export interface PdfOptions {format:'A4'|'A3'|'Letter';landscape:boolean;margin:number;fontSize:number;header:string;footer:string;pageNumbers:boolean;headingBreak:boolean;preview?:boolean;allowMissingResources?:boolean}
 const remoteImages=new Map<string,{data:string;expires:number}>();
 const escape = (text:string) => text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-export async function exportPdf(document:CompositeDocument,extensionPath:string,options:PdfOptions) {
+export async function exportPdf(document:CompositeDocument,extensionPath:string,storagePath:string,options:PdfOptions) {
   if (!['A4','A3','Letter'].includes(options.format) || !Number.isFinite(options.margin) || options.margin<0 || options.margin>60 || !Number.isFinite(options.fontSize) || options.fontSize<8 || options.fontSize>32) throw new Error('Invalid PDF settings.');
   const destination = options.preview ? vscode.Uri.file(join(await mkdtemp(join(tmpdir(),'markyou-pdf-')),'preview.pdf')) : await vscode.window.showSaveDialog({defaultUri:document.uri.with({path:document.uri.path.replace(/\.md$/i,'.pdf')}),filters:{PDF:['pdf']}});
   if (!destination) return;
@@ -88,7 +88,7 @@ export async function exportPdf(document:CompositeDocument,extensionPath:string,
   if(failures.length&&!options.allowMissingResources)throw new Error('PDF resource check failed; no PDF was written. Fix the resources, or explicitly enable placeholders:\n'+failures.join('\n'));
   for (const [id,data] of imageData) body=body.replace(`IMAGE-${id}`,data);
   const renderPdf=async()=>{
-    const browser = await chromium.launch({executablePath:join(extensionPath,'engine','chrome-headless-shell.exe'),headless:true});
+    const browser = await launchManagedBrowser(extensionPath,storagePath,{signal:resourceAbort.signal,report:message=>progress.report({message})});
     const subscription = token.onCancellationRequested(() => { void browser.close(); });
     try {
       if (token.isCancellationRequested) throw new Error('Export cancelled.');

@@ -1,4 +1,6 @@
 const zh:Record<string,string>={
+  'Preparing document browser':'正在准备文档渲染引擎','Downloading browser engine…':'正在下载文档渲染引擎…',
+  'Using Microsoft Edge':'正在使用 Microsoft Edge','Using Google Chrome':'正在使用 Google Chrome','Using Chromium':'正在使用已下载的渲染引擎',
   'Edit continuous section':'编辑同源连续章节','Paste table data':'粘贴表格数据','Convert to table':'转换为表格','Paste text only':'仅粘贴文字',
   'Check document':'导出前检查','PDF preflight':'PDF 导出前检查','Keep placeholders for missing images or invalid diagrams':'缺失图片或图表错误时保留占位（明确允许后继续）',
   'Locate':'在文档中定位','Edit path':'编辑路径','Move up':'上移引用','Move down':'下移引用','New Include position':'新引用位置','Edit Include path':'编辑引用路径',
@@ -53,6 +55,7 @@ const zh:Record<string,string>={
 export function translate(text:string,locale:string):string {
   if(!/^zh\b/i.test(locale))return text;
   if(zh[text])return zh[text];
+  if(/^Downloading browser engine… \d+%$/.test(text))return text.replace('Downloading browser engine…','正在下载文档渲染引擎…');
   if(/^Heading [1-6]$/.test(text))return text.replace('Heading','标题');
   return text.replace(/^Editing /,'正在编辑 ').replace(/^Source: /,'来源：').replace(/^Copy failed: /,'复制失败：')
     .replace(/^Unapplied drafts \((\d+)\)$/,'未应用草稿（$1）').replace(/^(\d+) matches$/,'$1 处命中').replace(/^(\d+) match$/,'$1 处命中')
