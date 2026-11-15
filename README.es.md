@@ -6,18 +6,18 @@
 Haz clic en cualquier bloque para editarlo en el sitio y conserva tus archivos <code>.md</code> como única fuente de verdad.</p>
 
 <p align="center">
-  <a href="README.md">English</a> ·
-  <a href="README.zh-CN.md">简体中文</a> ·
-  <a href="README.ja.md">日本語</a> ·
-  <a href="README.ko.md">한국어</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.md">English</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.zh-CN.md">简体中文</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.ja.md">日本語</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.ko.md">한국어</a> ·
   <strong>Español</strong> ·
-  <a href="README.fr.md">Français</a> ·
-  <a href="README.de.md">Deutsch</a> ·
-  <a href="README.ru.md">Русский</a>
+  <a href="https://github.com/singerawei/markyou/blob/main/README.fr.md">Français</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.de.md">Deutsch</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.ru.md">Русский</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/singerawei/markyou/releases"><img src="https://img.shields.io/github/v/release/singerawei/markyou?include_prereleases&label=release&style=flat-square" alt="Release"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=singeraw.markyou"><img src="https://img.shields.io/badge/Marketplace-Preview-007ACC?style=flat-square" alt="Marketplace preview"></a>
   <img src="https://img.shields.io/badge/platform-Windows%20x64-0078D6?style=flat-square" alt="Windows x64">
   <img src="https://img.shields.io/badge/VS%20Code-1.100%2B-007ACC?style=flat-square" alt="VS Code 1.100+">
   <img src="https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square" alt="MIT">
@@ -28,8 +28,6 @@ Haz clic en cualquier bloque para editarlo en el sitio y conserva tus archivos <
 MarkYou convierte archivos `.md` normales en un documento editable con un clic dentro de VS Code. Tus archivos siguen siendo la única fuente de verdad: cada guardado escribe Markdown de vuelta al archivo que posee el contenido, así que Git, tu editor de texto y cualquier otra herramienta de Markdown siguen funcionando.
 
 Está pensado para documentos que crecen. Combina varios archivos en un único documento continuo con `@import`, edita cualquier sección incluida en el sitio y guarda solo los archivos que realmente cambiaron. Sin cuenta, sin base de datos, sin telemetría y sin navegador.
-
-> **Vista previa:** 1.1.0 es una vista previa para Windows x64. Instálala desde [GitHub Releases](https://github.com/singerawei/markyou/releases).
 
 ## Qué lo hace diferente
 
@@ -54,26 +52,14 @@ Está pensado para documentos que crecen. Combina varios archivos en un único d
 
 **Requisitos:** Windows x64 y VS Code 1.100 o superior. No hace falta instalar Chrome ni Edge por separado.
 
-1. Descarga `markyou-win32-x64-1.1.0.vsix` desde [GitHub Releases](https://github.com/singerawei/markyou/releases).
+Instala la [versión preliminar de MarkYou en Marketplace](https://marketplace.visualstudio.com/items?itemName=singeraw.markyou) con **Install Pre-Release Version**. También puedes instalar el archivo VSIX:
+
+1. Descarga `markyou-win32-x64-1.1.1.vsix` desde [GitHub Releases](https://github.com/singerawei/markyou/releases).
 2. En VS Code, abre **Extensiones**, pulsa **… → Instalar desde VSIX…** y selecciona el archivo.
 3. Recarga VS Code.
 4. Haz clic derecho en cualquier archivo `.md` y elige **Abrir con… → MarkYou**.
 
 El VSIX pesa unos 125 MB porque incluye el motor Chromium que se usa para renderizar Mermaid y exportar PDF.
-
-<details>
-<summary>Compilar desde el código fuente</summary>
-
-```sh
-git clone https://github.com/singerawei/markyou.git
-cd markyou
-npm ci
-npx playwright install chromium-headless-shell
-npm run package
-```
-
-Requiere Node.js 22 o posterior. El VSIX generado está listo para instalar.
-</details>
 
 ## Inicio rápido
 
@@ -129,21 +115,8 @@ Todos los atajos son comandos de VS Code y se pueden reasignar. Consulta **MarkY
 - **Guardar como** debe permanecer en la misma carpeta para que los includes relativos sigan funcionando.
 - Los bloques demasiado grandes vuelven al editor de texto: código de más de 128 KiB, prosa de más de 16 KiB o tablas de más de 200 filas.
 - Las incrustaciones wiki (`![[Page]]`) se abren como tarjetas en las que se puede hacer clic, no como transclusiones completas.
-- La vista previa 1.1.0 es para Windows x64. La compuerta de la versión estable todavía está recopilando evidencias de uso real, IME, desplazamiento prolongado e instalación.
-
-## Desarrollo
-
-```sh
-npm ci
-npm run check        # lint, comprobación de tipos, pruebas core y compilación
-npx playwright install chromium
-npm run test:ui      # pruebas de UI
-npm run test:host    # pruebas en un host real de VS Code
-npm run package      # compila el VSIX
-```
-
-Consulta [CONTRIBUTING.md](CONTRIBUTING.md) para el flujo de contribución.
+- Esta versión preliminar está disponible para Windows x64.
 
 ## Licencia
 
-MIT. Las licencias de las dependencias de terceros y de Chromium están en [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+MIT. Las licencias de las dependencias de terceros y de Chromium están en [THIRD_PARTY_NOTICES.md](https://github.com/singerawei/markyou/blob/main/THIRD_PARTY_NOTICES.md).

@@ -6,18 +6,18 @@
 Щёлкните по любому блоку, чтобы отредактировать его на месте, а обычные файлы <code>.md</code> останутся единственным источником истины.</p>
 
 <p align="center">
-  <a href="README.md">English</a> ·
-  <a href="README.zh-CN.md">简体中文</a> ·
-  <a href="README.ja.md">日本語</a> ·
-  <a href="README.ko.md">한국어</a> ·
-  <a href="README.es.md">Español</a> ·
-  <a href="README.fr.md">Français</a> ·
-  <a href="README.de.md">Deutsch</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.md">English</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.zh-CN.md">简体中文</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.ja.md">日本語</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.ko.md">한국어</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.es.md">Español</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.fr.md">Français</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.de.md">Deutsch</a> ·
   <strong>Русский</strong>
 </p>
 
 <p align="center">
-  <a href="https://github.com/singerawei/markyou/releases"><img src="https://img.shields.io/github/v/release/singerawei/markyou?include_prereleases&label=release&style=flat-square" alt="Release"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=singeraw.markyou"><img src="https://img.shields.io/badge/Marketplace-Preview-007ACC?style=flat-square" alt="Marketplace preview"></a>
   <img src="https://img.shields.io/badge/platform-Windows%20x64-0078D6?style=flat-square" alt="Windows x64">
   <img src="https://img.shields.io/badge/VS%20Code-1.100%2B-007ACC?style=flat-square" alt="VS Code 1.100+">
   <img src="https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square" alt="MIT">
@@ -28,8 +28,6 @@
 MarkYou превращает обычные файлы `.md` в документ, который можно редактировать щелчком мыши прямо в VS Code. Ваши файлы остаются единственным источником истины: при каждом сохранении Markdown записывается обратно в файл, которому принадлежит содержимое, поэтому Git, текстовый редактор и любые другие инструменты Markdown продолжают работать.
 
 Он создан для документов, которые растут. Объединяйте несколько файлов в один непрерывный документ с помощью `@import`, редактируйте включённые разделы на месте и сохраняйте только те исходные файлы, которые действительно изменились. Без аккаунта, базы данных, телеметрии и браузера.
-
-> **Предварительная версия:** 1.1.0 — это предварительная версия для Windows x64. Установка доступна на [GitHub Releases](https://github.com/singerawei/markyou/releases).
 
 ## Чем он отличается
 
@@ -54,26 +52,14 @@ MarkYou превращает обычные файлы `.md` в документ
 
 **Требования:** Windows x64 и VS Code 1.100 или новее. Отдельно устанавливать Chrome или Edge не нужно.
 
-1. Скачайте `markyou-win32-x64-1.1.0.vsix` со страницы [GitHub Releases](https://github.com/singerawei/markyou/releases).
+Установите [предварительную версию MarkYou из Marketplace](https://marketplace.visualstudio.com/items?itemName=singeraw.markyou), выбрав **Install Pre-Release Version**. Также можно установить VSIX-файл:
+
+1. Скачайте `markyou-win32-x64-1.1.1.vsix` со страницы [GitHub Releases](https://github.com/singerawei/markyou/releases).
 2. В VS Code откройте **Расширения**, нажмите **… → Установить из VSIX…** и выберите файл.
 3. Перезагрузите VS Code.
 4. Щёлкните правой кнопкой по файлу `.md` и выберите **Открыть с помощью… → MarkYou**.
 
 VSIX занимает около 125 МБ, так как включает движок Chromium для отрисовки Mermaid и экспорта PDF.
-
-<details>
-<summary>Сборка из исходного кода</summary>
-
-```sh
-git clone https://github.com/singerawei/markyou.git
-cd markyou
-npm ci
-npx playwright install chromium-headless-shell
-npm run package
-```
-
-Требуется Node.js 22 или новее. Полученный VSIX готов к установке.
-</details>
 
 ## Быстрый старт
 
@@ -129,21 +115,8 @@ npm run package
 - **Сохранить как** должен оставаться в той же папке, чтобы относительные Include продолжали работать.
 - Слишком большие блоки открываются в текстовом редакторе: код свыше 128 КиБ, текст свыше 16 КиБ или таблицы свыше 200 строк.
 - Вики-вставки (`![[Page]]`) открываются как кликабельные карточки, а не как полные трансклюзии.
-- Предварительная версия 1.1.0 предназначена для Windows x64. Критерии стабильного выпуска всё ещё собирают данные о реальном использовании, IME, длительной прокрутке и установке.
-
-## Разработка
-
-```sh
-npm ci
-npm run check        # линтер, проверка типов, основные тесты, сборка
-npx playwright install chromium
-npm run test:ui      # тесты интерфейса
-npm run test:host    # тесты в реальном хосте VS Code
-npm run package      # сборка VSIX
-```
-
-Порядок участия описан в [CONTRIBUTING.md](CONTRIBUTING.md).
+- Предварительная версия доступна для Windows x64.
 
 ## Лицензия
 
-MIT. Лицензии сторонних зависимостей и Chromium перечислены в [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+MIT. Лицензии сторонних зависимостей и Chromium перечислены в [THIRD_PARTY_NOTICES.md](https://github.com/singerawei/markyou/blob/main/THIRD_PARTY_NOTICES.md).

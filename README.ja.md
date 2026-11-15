@@ -6,18 +6,18 @@
 ブロックをクリックするだけでその場で編集。プレーンな <code>.md</code> ファイルが常に唯一の情報源です。</p>
 
 <p align="center">
-  <a href="README.md">English</a> ·
-  <a href="README.zh-CN.md">简体中文</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.md">English</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.zh-CN.md">简体中文</a> ·
   <strong>日本語</strong> ·
-  <a href="README.ko.md">한국어</a> ·
-  <a href="README.es.md">Español</a> ·
-  <a href="README.fr.md">Français</a> ·
-  <a href="README.de.md">Deutsch</a> ·
-  <a href="README.ru.md">Русский</a>
+  <a href="https://github.com/singerawei/markyou/blob/main/README.ko.md">한국어</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.es.md">Español</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.fr.md">Français</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.de.md">Deutsch</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.ru.md">Русский</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/singerawei/markyou/releases"><img src="https://img.shields.io/github/v/release/singerawei/markyou?include_prereleases&label=release&style=flat-square" alt="Release"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=singeraw.markyou"><img src="https://img.shields.io/badge/Marketplace-Preview-007ACC?style=flat-square" alt="Marketplace preview"></a>
   <img src="https://img.shields.io/badge/platform-Windows%20x64-0078D6?style=flat-square" alt="Windows x64">
   <img src="https://img.shields.io/badge/VS%20Code-1.100%2B-007ACC?style=flat-square" alt="VS Code 1.100+">
   <img src="https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square" alt="MIT">
@@ -28,8 +28,6 @@
 MarkYou は、普通の `.md` ファイルを VS Code 内でクリックして編集できる文書に変えます。ファイルが唯一の情報源であり続け、保存のたびに Markdown がその内容を所有するファイルへ書き戻されます。Git、テキストエディター、その他の Markdown ツールをそのまま使い続けられます。
 
 大きくなる文書のために作られています。`@import` で複数のファイルを 1 つの連続した文書にまとめ、読み込まれたセクションをその場で編集し、実際に変更されたソースファイルだけを保存します。アカウント、データベース、テレメトリー、ブラウザーは不要です。
-
-> **プレビュー版：** 1.1.0 は Windows x64 向けのプレビューです。[GitHub Releases](https://github.com/singerawei/markyou/releases) からインストールしてください。
 
 ## 選ばれる理由
 
@@ -54,26 +52,14 @@ MarkYou は、普通の `.md` ファイルを VS Code 内でクリックして�
 
 **要件：** Windows x64、VS Code 1.100 以降。Chrome や Edge を別途インストールする必要はありません。
 
-1. [GitHub Releases](https://github.com/singerawei/markyou/releases) から `markyou-win32-x64-1.1.0.vsix` をダウンロードします。
+[Marketplace の MarkYou](https://marketplace.visualstudio.com/items?itemName=singeraw.markyou) で **Install Pre-Release Version** を選ぶとプレビュー版をインストールできます。VSIX ファイルからのインストールも可能です。
+
+1. [GitHub Releases](https://github.com/singerawei/markyou/releases) から `markyou-win32-x64-1.1.1.vsix` をダウンロードします。
 2. VS Code で **拡張機能** を開き、**… → VSIX からインストール…** をクリックしてファイルを選択します。
 3. VS Code を再読み込みします。
 4. `.md` ファイルを右クリックし、**アプリケーションから開く… → MarkYou** を選択します。
 
 VSIX は約 125 MB です。Mermaid のレンダリングと PDF 書き出しに使う Chromium エンジンを同梱しているためです。
-
-<details>
-<summary>ソースからビルド</summary>
-
-```sh
-git clone https://github.com/singerawei/markyou.git
-cd markyou
-npm ci
-npx playwright install chromium-headless-shell
-npm run package
-```
-
-Node.js 22 以降が必要です。生成された VSIX はそのままインストールできます。
-</details>
 
 ## クイックスタート
 
@@ -129,21 +115,8 @@ Node.js 22 以降が必要です。生成された VSIX はそのままインス
 - **名前を付けて保存** は、相対インクルードを維持するため同じフォルダー内に保存する必要があります。
 - 編集上限を超えたブロックはテキストエディターにフォールバックします：コード 128 KiB、本文 16 KiB、表 200 行。
 - Wiki 埋め込み（`![[Page]]`）はクリック可能なカードとして開き、全文のトランスクルージョンにはなりません。
-- 1.1.0 プレビューは Windows x64 向けです。安定版のリリースゲートは、実利用、IME、長いスクロール、インストールの証拠をまだ収集中です。
-
-## 開発
-
-```sh
-npm ci
-npm run check        # lint、型チェック、コアテスト、ビルド
-npx playwright install chromium
-npm run test:ui      # UI テスト
-npm run test:host    # 実際の VS Code ホストテスト
-npm run package      # VSIX をビルド
-```
-
-コントリビューションの手順は [CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
+- 現在のプレビュー版は Windows x64 に対応しています。
 
 ## ライセンス
 
-MIT。サードパーティ依存関係と Chromium のライセンスは [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) に記載されています。
+MIT。サードパーティ依存関係と Chromium のライセンスは [THIRD_PARTY_NOTICES.md](https://github.com/singerawei/markyou/blob/main/THIRD_PARTY_NOTICES.md) に記載されています。

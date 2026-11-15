@@ -6,18 +6,18 @@
 블록을 클릭해 바로 편집하고, 순수 <code>.md</code> 파일은 항상 유일한 원본으로 유지됩니다.</p>
 
 <p align="center">
-  <a href="README.md">English</a> ·
-  <a href="README.zh-CN.md">简体中文</a> ·
-  <a href="README.ja.md">日本語</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.md">English</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.zh-CN.md">简体中文</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.ja.md">日本語</a> ·
   <strong>한국어</strong> ·
-  <a href="README.es.md">Español</a> ·
-  <a href="README.fr.md">Français</a> ·
-  <a href="README.de.md">Deutsch</a> ·
-  <a href="README.ru.md">Русский</a>
+  <a href="https://github.com/singerawei/markyou/blob/main/README.es.md">Español</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.fr.md">Français</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.de.md">Deutsch</a> ·
+  <a href="https://github.com/singerawei/markyou/blob/main/README.ru.md">Русский</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/singerawei/markyou/releases"><img src="https://img.shields.io/github/v/release/singerawei/markyou?include_prereleases&label=release&style=flat-square" alt="Release"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=singeraw.markyou"><img src="https://img.shields.io/badge/Marketplace-Preview-007ACC?style=flat-square" alt="Marketplace preview"></a>
   <img src="https://img.shields.io/badge/platform-Windows%20x64-0078D6?style=flat-square" alt="Windows x64">
   <img src="https://img.shields.io/badge/VS%20Code-1.100%2B-007ACC?style=flat-square" alt="VS Code 1.100+">
   <img src="https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square" alt="MIT">
@@ -28,8 +28,6 @@
 MarkYou는 평범한 `.md` 파일을 VS Code 안에서 클릭해 편집할 수 있는 문서로 바꿔 줍니다. 파일이 유일한 원본으로 남으며, 저장할 때마다 Markdown이 해당 내용을 소유한 파일로 기록됩니다. 따라서 Git, 텍스트 편집기 및 다른 모든 Markdown 도구를 계속 사용할 수 있습니다.
 
 커지는 문서를 위해 설계되었습니다. `@import`로 여러 파일을 하나의 연속된 문서로 구성하고, 가져온 섹션을 바로 편집하며, 실제로 변경된 소스 파일만 저장합니다. 계정, 데이터베이스, 텔레메트리, 브라우저가 필요 없습니다.
-
-> **미리보기:** 1.1.0은 Windows x64 미리보기입니다. [GitHub Releases](https://github.com/singerawei/markyou/releases)에서 설치하세요.
 
 ## 차별점
 
@@ -54,26 +52,14 @@ MarkYou는 평범한 `.md` 파일을 VS Code 안에서 클릭해 편집할 수 �
 
 **요구 사항:** Windows x64, VS Code 1.100 이상. Chrome이나 Edge를 따로 설치할 필요가 없습니다.
 
-1. [GitHub Releases](https://github.com/singerawei/markyou/releases)에서 `markyou-win32-x64-1.1.0.vsix`를 다운로드합니다.
+[Marketplace의 MarkYou](https://marketplace.visualstudio.com/items?itemName=singeraw.markyou)에서 **Install Pre-Release Version**을 선택하여 미리 보기 버전을 설치하세요. VSIX 파일로 설치할 수도 있습니다.
+
+1. [GitHub Releases](https://github.com/singerawei/markyou/releases)에서 `markyou-win32-x64-1.1.1.vsix`를 다운로드합니다.
 2. VS Code에서 **확장**을 열고 **… → VSIX에서 설치…**를 클릭한 뒤 파일을 선택합니다.
 3. VS Code를 다시 로드합니다.
 4. `.md` 파일을 마우스 오른쪽 버튼으로 클릭하고 **다음으로 열기… → MarkYou**를 선택합니다.
 
 VSIX는 약 125MB입니다. Mermaid 렌더링과 PDF 내보내기에 사용하는 Chromium 엔진을 함께 포함하기 때문입니다.
-
-<details>
-<summary>소스에서 빌드</summary>
-
-```sh
-git clone https://github.com/singerawei/markyou.git
-cd markyou
-npm ci
-npx playwright install chromium-headless-shell
-npm run package
-```
-
-Node.js 22 이상이 필요합니다. 생성된 VSIX는 바로 설치할 수 있습니다.
-</details>
 
 ## 빠른 시작
 
@@ -129,21 +115,8 @@ Node.js 22 이상이 필요합니다. 생성된 VSIX는 바로 설치할 수 있
 - **다른 이름으로 저장**은 상대 Include를 유지하기 위해 같은 폴더에 저장해야 합니다.
 - 편집 한도를 넘는 블록은 텍스트 편집기로 대체됩니다: 코드 128 KiB, 본문 16 KiB, 표 200행.
 - Wiki 임베드(`![[Page]]`)는 클릭 가능한 카드로 열리며 전체 내용을 포함하지 않습니다.
-- 1.1.0 미리보기는 Windows x64용입니다. 안정 버전 릴리스 게이트는 실제 사용, IME, 긴 스크롤, 설치 증거를 아직 수집 중입니다.
-
-## 개발
-
-```sh
-npm ci
-npm run check        # lint, 타입 검사, 핵심 테스트, 빌드
-npx playwright install chromium
-npm run test:ui      # UI 테스트
-npm run test:host    # 실제 VS Code 호스트 테스트
-npm run package      # VSIX 빌드
-```
-
-기여 절차는 [CONTRIBUTING.md](CONTRIBUTING.md)를 참고하세요.
+- 현재 미리 보기 버전은 Windows x64를 지원합니다.
 
 ## 라이선스
 
-MIT. 타사 종속성 및 Chromium 라이선스는 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)에 있습니다.
+MIT. 타사 종속성 및 Chromium 라이선스는 [THIRD_PARTY_NOTICES.md](https://github.com/singerawei/markyou/blob/main/THIRD_PARTY_NOTICES.md)에 있습니다.
